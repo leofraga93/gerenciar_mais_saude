@@ -1,4 +1,10 @@
+import { useState } from 'react'
+
 function App() {
+  const [isCredentialModalOpen, setIsCredentialModalOpen] = useState(false)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+
   const metrics = [
     { label: 'Clínicas parceiras ativas', value: '120+' },
     { label: 'Solicitações respondidas em 24h', value: '94%' },
@@ -18,6 +24,14 @@ function App() {
     },
   ]
 
+  const handleCredentialSubmit = (event) => {
+    event.preventDefault()
+  }
+
+  const handleGoToClinicSignup = () => {
+    window.location.href = '/cadastro-clinica'
+  }
+
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-16 px-6 py-10 md:px-10">
@@ -28,38 +42,40 @@ function App() {
             </div>
             <div>
               <p className="text-lg font-semibold">Gerenciar Mais Saúde</p>
-              <p className="text-sm text-slate-500">Conectando clínicas e pacientes</p>
+              <p className="text-sm text-slate-500">Solução para clínicas e consultórios</p>
+              {/* <p className="text-sm text-slate-500">Conectando clínicas e pacientes</p> */}
             </div>
           </div>
           <button
             type="button"
-            disabled
-            className="cursor-not-allowed rounded-lg border border-slate-300 bg-slate-100 px-4 py-2 text-sm font-medium text-slate-500"
+            onClick={() => setIsCredentialModalOpen(true)}
+            className="rounded-lg border border-emerald-700 bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700"
           >
-            Acessar sistema (em breve)
+            Acessar sistema
           </button>
         </header>
 
         <section className="grid items-center gap-8 md:grid-cols-2">
           <div className="space-y-4">
             <span className="inline-block rounded-full bg-emerald-100 px-3 py-1 text-sm font-medium text-emerald-700">
-              Plataforma de gestão e captação em saúde
+              Plataforma de gestão e captação em saude
             </span>
             <h1 className="text-3xl font-bold leading-tight md:text-5xl">
-              Mais clareza para pacientes, mais oportunidades para clínicas.
+              {/* Reduza no-show e aposente as planilhas na gestão da sua clínica. */}
+              Mais facilidade para os pacientes, mais oportunidades para a sua clínica.
             </h1>
             <p className="text-slate-600 md:text-lg">
-              Funciona como um leilão virtual de serviços de saúde: clínicas divulgam
-              propostas e pacientes escolhem a melhor opção para seu momento.
+              O Gerenciar Mais Saúde centraliza o atendimento, qualifica pacientes e
+              transforma a captação em um processo organizado e escalável.
             </p>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="mb-4 text-xl font-semibold">Principais benefícios</h2>
             <ul className="space-y-3 text-slate-700">
-              <li>Comparação transparente entre opções de atendimento.</li>
-              <li>Captação recorrente de novos pacientes para clínicas parceiras.</li>
-              <li>Vitrine digital para serviços que ainda são pouco conhecidos.</li>
-              <li>Jornada simples para encontrar preço, prazo e qualidade.</li>
+              <li>Escalabilidade operacional com menos processos manuais.</li>
+              <li>Organização da jornada comercial e de agendamento em um só fluxo.</li>
+              <li>Qualificação de pacientes antes do contato final da clínica.</li>
+              <li>Mais previsibilidade de demanda e redução de no-show.</li>
             </ul>
           </div>
         </section>
@@ -99,17 +115,100 @@ function App() {
         <section className="rounded-2xl bg-emerald-600 px-6 py-8 text-center text-white">
           <h2 className="text-2xl font-semibold">Pronto para transformar a gestão de saúde?</h2>
           <p className="mt-2 text-emerald-50">
-            Em breve, o acesso completo ao sistema estará disponível para clínicas e pacientes.
+            Faça o credenciamento da sua clínica e esteja entre os primeiros parceiros da
+            plataforma.
           </p>
           <button
             type="button"
-            disabled
-            className="mt-6 cursor-not-allowed rounded-lg bg-white/80 px-6 py-3 font-semibold text-emerald-800"
+            onClick={() => setIsCredentialModalOpen(true)}
+            className="mt-6 rounded-lg bg-white px-6 py-3 font-semibold text-emerald-800 transition hover:bg-emerald-100"
           >
-            Entrar na plataforma (desativado)
+            Credenciar clínica
           </button>
         </section>
       </div>
+
+      {isCredentialModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <div className="mb-6 flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-xl font-semibold text-slate-900">Credenciamento da clínica</h3>
+                <p className="mt-1 text-sm text-slate-600">
+                  Acesso inicial ao Portal da Clínica. Integração com backend em preparação.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCredentialModalOpen(false)}
+                className="rounded-md p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+                aria-label="Fechar modal"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form className="space-y-4" onSubmit={handleCredentialSubmit}>
+              <div>
+                <label htmlFor="clinic-email" className="mb-1 block text-sm font-medium text-slate-700">
+                  E-mail
+                </label>
+                <input
+                  id="clinic-email"
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-emerald-500 placeholder:text-slate-400 focus:ring-2"
+                  placeholder="contato@clinica.com.br"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="clinic-password" className="mb-1 block text-sm font-medium text-slate-700">
+                  Senha
+                </label>
+                <input
+                  id="clinic-password"
+                  type="password"
+                  required
+                  minLength={8}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none ring-emerald-500 placeholder:text-slate-400 focus:ring-2"
+                  placeholder="Digite sua senha"
+                />
+              </div>
+
+              <div className="flex items-center justify-between text-sm">
+                <button type="button" className="font-medium text-emerald-700 hover:text-emerald-800">
+                  Esqueceu a senha?
+                </button>
+                <button type="submit" className="rounded-lg bg-emerald-600 px-4 py-2 font-semibold text-white hover:bg-emerald-700">
+                  Entrar no portal
+                </button>
+              </div>
+            </form>
+
+            <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+              <p className="text-sm font-semibold text-emerald-900">
+                Ainda nao e parceiro da plataforma?
+              </p>
+              <p className="mt-1 text-sm text-emerald-800">
+                Credencie sua clinica para aumentar a captacao de pacientes, reduzir
+                no-show e organizar seu fluxo comercial.
+              </p>
+              <button
+                type="button"
+                onClick={handleGoToClinicSignup}
+                className="mt-3 w-full rounded-lg border border-emerald-700 bg-white px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100"
+              >
+                Quero credenciar minha clinica
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   )
 }
