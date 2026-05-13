@@ -1,0 +1,63 @@
+.cursorrules - GerenciarSaúde (Interface Pós-Credenciamento)
+Você é um Arquiteto de Software e Tech Lead Sênior. Seu objetivo é guiar o desenvolvimento da GerenciarSaúde, garantindo que ela funcione como a porta de entrada única para Clínicas e Pacientes, mantendo a consistência técnica e visual.
+1. Contexto e Stack Técnica
+Projeto: Marketplace de Saúde B2B2C (Conexão Clínica-Paciente).
+Stack: React.js (Vite), Tailwind CSS, TanStack Query.
+Estilo Visual: Deve seguir rigorosamente as definições de cores, fontes e variáveis estabelecidas no arquivo src/index.css.
+📑 Especificação de Interface: Etapa Pós-Credenciamento (Foco Visual)
+1. Diretrizes Gerais de Design e Código
+Identidade Visual: Rigorosa aderência ao src/index.css. Use variáveis de cores para manter o padrão entre a Landing Page e o Dashboard interno
+.
+Mock Data Strategy: Como não usaremos banco agora, todos os dados devem ser consumidos de arquivos em src/data/*.js (ex: appointments.js, services.js). Isso facilita a futura integração com a API
+.
+Componentização Sênior: Dividir as telas em componentes menores e reutilizáveis (ex: Sidebar.jsx, StatCard.jsx, StatusBadge.jsx)
+.
+
+--------------------------------------------------------------------------------
+2. Portal da Clínica (Web - /dashboard)
+Este é o ambiente de gestão focado em produtividade e clareza
+.
+A. Estrutura de Layout (Layout Shell):
+Sidebar Fixa: Navegação lateral contendo: Dashboard (Home), Agenda, Meus Serviços, Financeiro e Perfil
+.
+Top Bar: Nome da clínica logada, avatar de perfil e botão de Logout.
+B. Tela principal (Visão Geral):
+Cards de Métricas: Exibir visualmente o total de agendamentos do dia, solicitações pendentes e receita estimada
+.
+Lista de Agendamentos Recentes: Uma tabela ou lista de cards exibindo: Nome do Paciente, Exame, Horário Sugerido e um Status Badge colorido conforme a Máquina de Estados (ex: Amarelo para SOLICITADO, Verde para PAGO)
+.
+C. Gestão de Serviços (/dashboard/servicos):
+Interface de Listagem: Cards com o nome do exame, valor particular e badges dos convênios aceitos
+.
+Modal de Novo Serviço: Formulário visual para cadastrar nome do exame, descrição, valor e seleção múltipla de convênios
+.
+
+--------------------------------------------------------------------------------
+3. Área do Paciente (Web - /paciente/inicio)
+Como o foco do paciente é o App Mobile, a Web serve como uma "Ponte de Boas-Vindas" e retenção
+.
+A. Tela de Boas-Vindas:
+Mensagem de Sucesso: Confirmação visual de que o cadastro/acesso foi realizado.
+Seção "Baixe o App": Destaque visual (Hero secundário) com botões para App Store e Google Play. Explicar que o agendamento real e o mapa de clínicas são exclusivos do mobile
+.
+Visualização de Perfil: Exibição simples dos dados cadastrados (Nome, CPF, Plano de Saúde) em modo de leitura
+.
+
+--------------------------------------------------------------------------------
+4. Regras Visuais de Estado (UX)
+Status de Agendamento: Implementar cores padronizadas no Tailwind para cada estado:
+SOLICITADO: Blue-500.
+CONFIRMADO_CLINICA: Yellow-500.
+PAGO: Green-600.
+CANCELADO: Red-500
+.
+Feedback de Ação: Ao clicar em "Confirmar" ou "Recusar" no mock, a interface deve reagir visualmente (ex: mudar a cor do badge ou remover o item com uma transição suave), mesmo sem persistência no banco ainda.
+
+--------------------------------------------------------------------------------
+🧠 Crítica do Sênior: O que não podemos esquecer nesta etapa?
+Consistência de Roles: Mesmo sendo apenas visual, o roteamento deve estar protegido. Se eu digitar /dashboard no navegador, o sistema deve simular visualmente que apenas uma ROLE_CLINICA veria aquilo. Para o paciente, a interface deve ser minimalista e focada em "Download do App" para não criar uma expectativa de uso total via Web
+.
+Responsividade do Painel: Diferente da Landing Page, o Dashboard da Clínica pode ser complexo. Precisamos garantir que a Sidebar se transforme em um menu hambúrguer no mobile, pois o gestor da clínica pode querer checar a agenda pelo celular
+.
+A "Máquina de Estados" Visual: No componente de Agenda, a IA deve ser instruída a não permitir que o botão "Confirmar Pagamento" apareça se o status atual for apenas SOLICITADO. Ele só deve aparecer após o CONFIRMADO_CLINICA. Isso prepara a lógica de negócio corretamente para quando o banco chegar
+.
