@@ -45,7 +45,7 @@ function LandingPage() {
   }
 
   const handleGoToClinicSignup = () => {
-    window.location.href = '/cadastro-clinica'
+    navigate('/cadastro-clinica')
   }
 
   return (
