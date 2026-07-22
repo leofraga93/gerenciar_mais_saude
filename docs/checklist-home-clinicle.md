@@ -4,7 +4,9 @@ Base de comparação: `docs/.cursorrulesIndexHomeClinicle` e fluxo de negócio B
 
 **Escopo desta fase:** front-end visual + mock data. **Fora de escopo agora:** banco de dados, `fetch`/`axios` real, persistência de token. **Preparar desde já:** contratos de dados, `src/data/*.js`, `src/services/*.js`, hooks compatíveis com TanStack Query.
 
-**Última revisão:** credenciamento completo (wizard, validações, UX senha, banner no dashboard).
+**Última revisão:** §3.1 ClinicShell + rotas aninhadas; base de catálogo (`catalogConstants`, `insurances.js`).
+
+**Fase atual:** fundação do portal concluída (§3.1). **Próxima entrega:** mocks `services.js` + `useServices` (§3.2) → CRUD Meus Serviços (§4.4).
 
 ---
 
@@ -12,17 +14,19 @@ Base de comparação: `docs/.cursorrulesIndexHomeClinicle` e fluxo de negócio B
 
 ```text
 Landing (/) → Credenciamento (/cadastro-clinica) → Login clínica (mock) → Portal (/dashboard/*)
+         [x]                              [x]                    [mock]              [x shell]
                                                       ↓
-                                              Perfil + Serviços + Agenda + Financeiro
+                              Perfil + Serviços + Agenda + Financeiro  [→ §3.2 / §4.4]
 ```
 
 | Etapa | Objetivo | Status |
 |--------|----------|--------|
 | Credenciamento | Criar conta da empresa (dados mínimos + acesso). | **Concluído** (mock) |
 | Login | Entrar no portal administrativo (`ROLE_CLINICA`). | **Mock** (landing; sem vínculo com senha cadastrada) |
-| Perfil | Manter cadastro institucional, contato, financeiro e documentos. | **Pendente** |
-| Operação | Agenda, métricas, máquina de estados nos agendamentos. | **Pendente** |
-| Oferta | Catálogo de exames/procedimentos, preços e convênios. | **Pendente** |
+| **Fundação do portal** | Shell, rotas aninhadas, top bar, sidebar responsiva. | **Concluído** (§3.1) |
+| **Catálogo / oferta** | Clínica publica exames e consultas (B2B2C). | **Próximo** (§3.2 + §4.4) |
+| Perfil | Manutenção cadastral completa (endereço, PIX, documentos). | **Pendente** (§4.6) |
+| Operação | Agenda, métricas, máquina de estados. | **Pendente** (§4.1–4.3) |
 
 ---
 
@@ -44,18 +48,19 @@ Landing (/) → Credenciamento (/cadastro-clinica) → Login clínica (mock) →
 - [x] Bloqueio explícito de agendamento na web (mensagem: recurso só no app).
 - [ ] Perfil read-only completo (Nome, CPF, Plano de Saúde) — hoje só e-mail vindo do `state` do login mock; demais campos aguardam API/mock.
 
-### 1.3 Portal da clínica — esqueleto pós-credenciamento
+### 1.3 Portal da clínica — ClinicShell (§3.1)
 
-- [x] Página em `/dashboard` (`src/pages/DashboardPage.jsx`) com header e área de conteúdo mock.
-- [x] Nome da clínica no header após credenciamento (`getRegisteredClinic()` + `sessionStorage`).
-- [x] Banner **“Complete seu perfil”** pós-credenciamento (dispensável com “Entendi”).
-- [x] Link **Sair para a página inicial** (volta para `/`).
-- [ ] Layout shell completo (sidebar, rotas aninhadas, avatar) — ver seção 3.
-- [ ] Métricas, agenda, serviços e perfil editável — ver seções 3 e 4.
+- [x] Layout **`ClinicShell`** envolvendo `/dashboard/*` (`src/components/clinic/ClinicShell.jsx`).
+- [x] Nome fantasia no top bar (`getRegisteredClinic()` + `sessionStorage`).
+- [x] Avatar placeholder (iniciais da clínica) em `ClinicTopBar.jsx`.
+- [x] Botão **Sair** com `clearRegisteredClinic()` + redirecionamento para `/`.
+- [x] Banner **“Complete seu perfil”** na home (`ClinicDashboardPage.jsx`).
+- [x] Rotas aninhadas: home, agenda, serviços, financeiro, perfil.
+- [ ] Métricas, agenda operacional, CRUD de serviços e perfil editável — ver §4.
 
 ---
 
-## 2) Credenciamento da clínica (`/cadastro-clinica`)
+## 2) Credenciamento da clínica (`/cadastro-clinica`) — CONCLUÍDO
 
 Wizard em 4 etapas para criar a conta da empresa **antes** do uso pleno do portal.
 
@@ -69,7 +74,7 @@ Wizard em 4 etapas para criar a conta da empresa **antes** do uso pleno do porta
 - [x] Chave de sessão mock em `src/constants/clinicStorage.js`.
 - [x] Leitura mock pós-cadastro: `getRegisteredClinic()` e `clearRegisteredClinic()` em `clinicService.js`.
 
-> Mapa de arquivos: `App.jsx` (rota) → `ClinicSignupPage.jsx` (UI) → `clinicSignupValidation.js` (regras) → `clinicService.js` (mock persistência) → `DashboardPage.jsx` (nome + banner).
+> Mapa de arquivos: `App.jsx` (rotas aninhadas) → `ClinicShell` → páginas em `pages/clinic/*` → `clinicService.js` (sessão).
 
 ### 2.2 Campos — credenciamento inicial (mínimo para conta)
 
@@ -84,94 +89,91 @@ Wizard em 4 etapas para criar a conta da empresa **antes** do uso pleno do porta
 | Aceite termos de uso e privacidade | Sim | [x] Etapa 4 |
 | Código de indicação / parceiro | Não | [x] Etapa 3 |
 
-### 2.3 Validação e UX do wizard (evoluções concluídas)
+### 2.3 Validação e UX do wizard
 
-- [x] Validação **por etapa** ao clicar **Continuar** (bloqueia avanço se houver erro).
-- [x] Validação **por campo** ao sair do input (`onBlur`).
-- [x] Revalidação do formulário inteiro ao **Concluir credenciamento** (volta à etapa com erro, se necessário).
-- [x] Mensagem de etapa + borda vermelha + foco no primeiro campo inválido.
-- [x] **Razão social:** 3–200 caracteres, deve conter letras.
-- [x] **CNPJ:** 14 dígitos + algoritmo de dígitos verificadores (front-end; não consulta Receita).
-- [x] **E-mail:** formato válido, máx. 254 caracteres.
-- [x] **Senha:** mín. 8 caracteres, letras e números; confirmação obrigatória e igual à senha.
-- [x] **Responsável:** nome completo (nome + sobrenome), apenas letras/espaços.
-- [x] **Telefone:** DDD válido (lista BR), fixo (10 dígitos) ou celular (11 dígitos com 9 após DDD).
-- [x] **Código de indicação:** opcional; se preenchido, 4–30 caracteres alfanuméricos + hífen.
-- [x] Máscaras de digitação: CNPJ e telefone (`formatCnpj`, `formatPhone`).
-- [x] Componente `PasswordInput`: **segurar** ícone de olho para revelar senha; soltar oculta novamente.
-- [x] Formulário com `noValidate` (mensagens customizadas em português).
-- [x] Resumo dos dados na etapa 4 antes do aceite dos termos.
-- [ ] Páginas reais de termos de uso e política de privacidade (hoje só texto no checkbox).
-- [ ] Login da landing validando e-mail/senha cadastrados no credenciamento (mock ainda independente).
+- [x] Validação por etapa, por campo (`onBlur`) e revalidação global ao concluir.
+- [x] CNPJ com dígitos verificadores; telefone BR; senha com letras e números.
+- [x] `PasswordInput`: segurar ícone de olho para revelar senha.
+- [ ] Páginas reais de termos de uso e política de privacidade.
+- [ ] Login da landing validando e-mail/senha cadastrados no credenciamento.
 
 ---
 
-## 3) Fase 1 — Fundação do portal da clínica (visual + mock)
+## 3) Operação — Fundação do Portal (Layout & Navegação)
 
-Referência: `.cursorrulesIndexHomeClinicle` + itens pendentes abaixo.
+Esta etapa garante ambiente de trabalho **profissional e responsivo** para a clínica operar após o credenciamento. Referência: `.cursorrulesIndexHomeClinicle` §2.A.
 
-### 3.1 Layout e navegação
+### 3.1 ClinicShell e navegação — CONCLUÍDO
 
-- [ ] **Layout shell** (`ClinicShell`): sidebar fixa + top bar.
-- [ ] Itens de menu: Dashboard (Home), Agenda, Meus Serviços, Financeiro, Perfil.
-- [ ] Top bar completa: nome da clínica logada, **avatar**, logout.
-- [ ] Rotas aninhadas: `/dashboard`, `/dashboard/agenda`, `/dashboard/servicos`, `/dashboard/financeiro`, `/dashboard/perfil`.
-- [ ] Sidebar responsiva: menu hambúrguer em mobile/tablet.
+- [x] **`ClinicShell`**: componente pai em `/dashboard/*` com Sidebar + Top Bar + `<Outlet />`.
+- [x] **Sidebar fixa (desktop):** Dashboard, Agenda, Meus Serviços, Financeiro, Perfil (`Sidebar.jsx` + `clinicNav.js`).
+- [x] **Sidebar responsiva (mobile/tablet):** menu hambúrguer + drawer com overlay.
+- [x] **Top bar operacional** (`ClinicTopBar.jsx`):
+- [x] Nome fantasia da clínica (`sessionStorage` / `getRegisteredClinic()`).
+- [x] Avatar placeholder (iniciais em círculo esmeralda).
+- [x] Botão **Sair** com `clearRegisteredClinic()` + redirecionamento para `/`.
+- [x] **Rotas aninhadas** em `App.jsx`:
+- [x] `/dashboard` — `ClinicDashboardPage.jsx`
+- [x] `/dashboard/agenda` — `ClinicAgendaPage.jsx`
+- [x] `/dashboard/servicos` — `ClinicServicesPage.jsx` (preview categorias/convênios)
+- [x] `/dashboard/financeiro` — `ClinicFinancePage.jsx`
+- [x] `/dashboard/perfil` — `ClinicProfilePage.jsx`
 
-> **Parcial hoje:** `DashboardPage` exibe nome da clínica e link de saída, sem sidebar nem rotas filhas.
+### 3.2 Estrutura de dados e contratos (mocks)
 
-### 3.2 Mock data e contratos
+Antes da UI de serviços, definir contratos estáveis para a futura API (mesma forma no mock e nos endpoints).
 
-- [ ] Pasta `src/data/` com arquivos exportando objetos estáveis para futura API:
-  - [ ] `clinicProfile.js` — perfil da clínica logada.
-  - [ ] `appointments.js` — agendamentos.
-  - [ ] `services.js` — catálogo de procedimentos.
-  - [ ] `insurances.js` — convênios/planos mestre.
-- [ ] Contrato documentado: `ClinicProfile`, `Service[]`, `Appointment[]`, `Insurance[]` (mesma forma no mock e na API futura).
+- [x] Pasta `src/data/` criada.
+- [ ] **`src/data/services.js`** — mock de serviços da clínica:
+- [ ] Campos alinhados à arquitetura: `id`, `name`, `category`, `tussCode`, `privatePrice`, `insuranceIds[]`, `descriptionPrep`, `durationMinutes`, `active`.
+- [x] **`src/data/insurances.js`** — lista mestre (Bradesco, Unimed, Cassi, etc.) com `id` + `name`.
+- [x] **`src/constants/catalogConstants.js`** — categorias (Laboratório, Imagem, Cardiologia, Consulta, Outros) + `SERVICE_FIELD_KEYS`.
+- [ ] **`src/data/clinicProfile.js`** — perfil estendido (complemento ao `sessionStorage`).
+- [ ] **`src/data/appointments.js`** — agendamentos mock (para dashboard/agenda).
+- [ ] Contrato tipado/documentado: `Service`, `Insurance`, `ClinicProfile`, `Appointment`.
+- [ ] **`useServices` hook** em `src/hooks/useServices.js`:
+- [ ] Estrutura compatível com TanStack Query (`queryKey`, `queryFn`).
+- [ ] Consumo inicial de `src/data/services.js` (sem API).
+- [ ] Serviços em `clinicService.js`: `getServices`, `saveService`, `deleteService` (Promise + mock local).
 
-> **Parcial hoje:** registro mínimo da clínica em `sessionStorage` via `registerClinic()` (não é `src/data/*.js`).
+> **Insight (migração API):** no banco, a tabela `convenio_servico` fará o relacionamento **N:N** entre serviços e convênios. Na UI, o campo de convênios no modal deve ser **multi-select dinâmico** (IDs de `insurances.js`), nunca texto livre — facilita substituir o mock por API sem refatorar formulários.
 
-### 3.3 Componentização
+### 3.3 Componentização do portal
 
-- [ ] `Sidebar.jsx`, `ClinicTopBar.jsx`, `ClinicShell.jsx`.
-- [ ] `StatCard.jsx` (métricas).
+- [x] `ClinicShell.jsx`, `Sidebar.jsx`, `ClinicTopBar.jsx` em `src/components/clinic/`.
+- [ ] `StatCard.jsx` (métricas da home).
 - [ ] `StatusBadge.jsx` (estados de agendamento).
-- [ ] Componentes de formulário reutilizáveis extraídos (inputs, seções de perfil).
-
-> **Parcial hoje:** `Field`, `PasswordInput`, `EyeIcon`/`EyeOffIcon` locais em `ClinicSignupPage.jsx` (não extraídos para pasta `components/`).
+- [ ] Componentes reutilizáveis de formulário (extrair padrão de `Field` / validação do credenciamento).
 
 ### 3.4 Ganchos para API (sem integração real)
 
-- [x] `registerClinic()`, `getRegisteredClinic()`, `clearRegisteredClinic()` em `src/services/clinicService.js`.
-- [ ] `getClinicProfile`, `updateClinicProfile`, `getAppointments`, `getServices`, etc. (mock via Promise).
-- [ ] Hooks em `src/hooks/`: ex. `useClinicProfile`, `useAppointments`, `useServices`.
-- [ ] Dependência e estrutura TanStack Query preparadas (`queryKey` + `queryFn` trocável).
-- [ ] Contexto opcional `ClinicSessionContext` (clínica logada mock, `ROLE_CLINICA`).
+- [x] `registerClinic()`, `getRegisteredClinic()`, `clearRegisteredClinic()` em `clinicService.js`.
+- [ ] `getClinicProfile`, `updateClinicProfile`, `getAppointments` (mock via Promise).
+- [ ] Dependência `@tanstack/react-query` + provider em `main.jsx`.
+- [ ] Contexto opcional `ClinicSessionContext` (`ROLE_CLINICA` mock).
 
 ### 3.5 Proteção de rotas (simulação visual)
 
-- [ ] Acesso a `/dashboard/*` tratado como área exclusiva de clínica (guard mock por role).
-- [ ] Paciente não deve ver fluxo de gestão de serviços/agenda administrativa.
+- [ ] Guard mock: `/dashboard/*` exclusivo de clínica.
+- [ ] Paciente não acessa gestão de serviços/agenda administrativa.
 
 ---
 
-## 4) Fase 2 — Portal da clínica (gestão e oferta)
+## 4) Operação — Portal da clínica (gestão, catálogo e perfil)
 
 ### 4.1 Dashboard — visão geral (`/dashboard`)
 
 - [ ] Cards de métricas: agendamentos do dia, solicitações pendentes, receita estimada.
 - [ ] Lista de agendamentos recentes: Nome do Paciente, Exame, Horário Sugerido, Status.
-- [ ] Dados consumidos de `src/data/appointments.js` via hooks.
+- [ ] Dados de `src/data/appointments.js` via hook.
 
 ### 4.2 Agenda (`/dashboard/agenda`)
 
-- [ ] Listagem completa (tabela ou cards) com os mesmos campos da home.
-- [ ] Filtros simples mock (status, data).
-- [ ] Ações mock: confirmar, recusar, avançar status (sem persistência em banco).
+- [ ] Listagem completa (tabela ou cards).
+- [ ] Filtros mock (status, data).
+- [ ] Ações mock: confirmar, recusar, avançar status.
 
-### 4.3 Máquina de estados visual
-
-Cores padronizadas (Tailwind / `index.css`):
+### 4.3 Máquina de estados visual (agendamentos)
 
 | Status | Cor | Item |
 |--------|-----|------|
@@ -180,27 +182,61 @@ Cores padronizadas (Tailwind / `index.css`):
 | `PAGO` | Verde (`green-600`) | [ ] |
 | `CANCELADO` | Vermelho (`red-500`) | [ ] |
 
-Regras de UX (preparar lógica de negócio):
-
 - [ ] Botão **Confirmar agendamento** só quando status = `SOLICITADO`.
-- [ ] Botão **Registrar pagamento** (ou equivalente) só após `CONFIRMADO_CLINICA`.
+- [ ] Botão **Registrar pagamento** só após `CONFIRMADO_CLINICA`.
 - [ ] Feedback visual ao mudar status (badge, transição, toast).
 
-### 4.4 Meus serviços (`/dashboard/servicos`)
+---
 
-- [ ] Listagem em cards: nome do exame, valor particular, badges de convênios aceitos.
-- [ ] Modal **Novo serviço**: nome, descrição, categoria, valor particular, duração/preparo, ativo/inativo.
-- [ ] Seleção múltipla de convênios por procedimento (lista mestre em `insurances.js`).
-- [ ] Edição/inativação mock de serviço existente.
+### 4.4 Meus Serviços (`/dashboard/servicos`) — vitrine B2B2C
+
+Tela onde a clínica **oferta** exames e consultas para pacientes no app. **Prioridade alta** após §3.1 e §3.2.
+
+#### 4.4.1 Visualização (lista / cards)
+
+- [ ] Listagem: cards ou tabela com **Nome do exame**, **Valor Particular (R$)** e **badges dos convênios** aceitos.
+- [ ] Badge **Ativo / Inativo** por serviço no catálogo.
+- [ ] Ações rápidas mock: **Editar** e **Remover** (simulação visual).
+- [ ] Botão **Novo serviço** abrindo modal/formulário.
+- [ ] Dados via `useServices` (mock → API futura).
+
+#### 4.4.2 Cadastro e edição (modal / formulário)
+
+| Campo | Obrigatório | UI | Notas |
+|--------|-------------|-----|-------|
+| Nome do procedimento | Sim | [ ] | Ex.: "Ressonância Magnética com Contraste" |
+| Código TUSS | Não | [ ] | Padrão de procedimentos médicos |
+| Categoria | Sim | [ ] | Select: **Exame**, **Consulta**, **Procedimento Especial** |
+| Descrição para o paciente | Sim | [ ] | Texto explicativo |
+| Valor particular (R$) | Sim | [ ] | Base sem convênio |
+| Duração / preparo | Recomendado | [ ] | Ex.: "Jejum de 8 horas" |
+| Ativo / inativo | Sim | [ ] | Controla visibilidade no catálogo |
+| Convênios aceitos | Sim | [ ] | **Multi-select** de `insurances.js` (IDs) |
+| Regra de valor por convênio | Recomendado | [ ] | Opcional nesta fase; preparar campo |
+| Observações comerciais | Não | [ ] | Promoções, pacotes |
+
+**Gestão de convênios (regra de negócio):**
+
+- [ ] Multi-select dinâmico (não campo de texto).
+- [ ] Serviço só aparece para pacientes cujo plano está entre os convênios selecionados (documentar no mock; filtro real no app futuro).
+- [ ] Persistência mock do vínculo N:N (`insuranceIds[]` no serviço ↔ futuro `convenio_servico`).
+
+#### 4.4.3 UX específica de serviços
+
+- [ ] Toast ou mensagem de sucesso ao salvar serviço no mock.
+- [ ] Validação sênior reutilizada: borda vermelha, mensagens em português, `onBlur` + bloqueio de submit (padrão do credenciamento).
+- [ ] Botões e inputs com cores de `index.css` (esmeralda para ações primárias).
+
+---
 
 ### 4.5 Financeiro (`/dashboard/financeiro`)
 
-- [ ] Visão mock: resumo de receita estimada, histórico simplificado, destaque PIX.
+- [ ] Resumo mock: receita estimada, histórico simplificado, destaque PIX.
 - [ ] Sem integração bancária real nesta fase.
 
 ### 4.6 Perfil da clínica (`/dashboard/perfil`)
 
-Formulário de manutenção do cadastro (edição local / mock). Agrupar em abas ou seções:
+Manutenção cadastral completa (complemento ao credenciamento mínimo). Campos agrupados:
 
 #### Identificação e localização
 
@@ -208,73 +244,19 @@ Formulário de manutenção do cadastro (edição local / mock). Agrupar em abas
 |--------|-------------|-----|
 | Nome fantasia | Sim | [ ] |
 | Razão social | Sim | [ ] |
-| CNPJ (somente leitura após credenciamento) | Sim | [ ] |
+| CNPJ (somente leitura) | Sim | [ ] |
 | Inscrição estadual / municipal | Não | [ ] |
-| Endereço completo (CEP, logradouro, número, complemento, bairro, cidade, UF) | Sim | [ ] |
+| Endereço completo | Sim | [ ] |
 | Ponto de referência | Não | [ ] |
 | Telefones da recepção | Sim | [ ] |
 | E-mail institucional | Sim | [ ] |
 | Site / redes sociais | Não | [ ] |
 
-#### Operação
+#### Operação, marca, responsáveis, financeiro, documentos
 
-| Campo | Obrigatório | UI |
-|--------|-------------|-----|
-| Especialidades / áreas de atuação | Sim | [ ] |
-| Horário de funcionamento por dia | Sim | [ ] |
-| Feriados / fechamentos excepcionais | Não | [ ] |
-| Observações gerais / preparo padrão | Não | [ ] |
+Ver tabelas completas na revisão anterior — todos `[ ]` até implementação da tela Perfil.
 
-#### Marca
-
-| Campo | Obrigatório | UI |
-|--------|-------------|-----|
-| Logo (upload mock) | Recomendado | [ ] |
-| Descrição curta | Sim | [ ] |
-| Descrição longa / diferenciais | Não | [ ] |
-
-#### Responsáveis
-
-| Campo | Obrigatório | UI |
-|--------|-------------|-----|
-| Gestor principal (nome, CPF, cargo, e-mail, telefone) | Sim | [ ] |
-| Usuários adicionais do portal (futuro) | Não | [ ] |
-| CRM / responsável técnico (se aplicável) | Conforme regra | [ ] |
-
-#### Financeiro (perfil)
-
-| Campo | Obrigatório | UI |
-|--------|-------------|-----|
-| Chave PIX + titular | Sim | [ ] |
-| Dados bancários alternativos | Não | [ ] |
-| Política de cancelamento / no-show | Recomendado | [ ] |
-| Emissão de NF e dados fiscais extras | Não | [ ] |
-
-#### Documentação (upload mock)
-
-| Documento | Obrigatório | UI |
-|-----------|-------------|-----|
-| Contrato social / MEI | Sim | [ ] |
-| Alvará / licença sanitária | Sim | [ ] |
-| Comprovante de endereço | Não | [ ] |
-| Certidões / homologação | Não | [ ] |
-
-#### Catálogo — campos por procedimento (tela Serviços)
-
-| Campo | Obrigatório | UI |
-|--------|-------------|-----|
-| Nome do exame/procedimento | Sim | [ ] |
-| Código interno / TUSS | Não | [ ] |
-| Categoria | Sim | [ ] |
-| Descrição para o paciente | Sim | [ ] |
-| Valor particular (R$) | Sim | [ ] |
-| Duração / preparo | Recomendado | [ ] |
-| Ativo / inativo | Sim | [ ] |
-| Convênios aceitos no procedimento | Sim | [ ] |
-| Regra de valor por convênio | Recomendado | [ ] |
-| Observações comerciais | Não | [ ] |
-
-#### Convênios — cadastro mestre
+#### Convênios — cadastro mestre (perfil da clínica)
 
 | Campo | Obrigatório | UI |
 |--------|-------------|-----|
@@ -282,106 +264,122 @@ Formulário de manutenção do cadastro (edição local / mock). Agrupar em abas
 | Código do prestador na operadora | Não | [ ] |
 | Documento de credenciamento (upload mock) | Não | [ ] |
 
-- [ ] Salvar perfil atualiza estado local/mock e reflete nome na top bar.
-- [ ] Banner **“Cadastro incompleto”** quando faltar campos obrigatórios do perfil (além do banner pós-credenciamento já existente).
+- [ ] Salvar perfil atualiza mock e reflete nome na top bar.
+- [ ] Banner **“Cadastro incompleto”** quando faltarem campos obrigatórios do perfil.
 
 ---
 
-## 5) Dados gerados pela operação (não são “cadastro”, mas aparecem no portal)
+## 5) Dados gerados pela operação
 
 | Dado | Origem | Onde exibir | Status |
 |------|--------|-------------|--------|
-| Agendamentos (paciente, exame, horário, status) | Plataforma / pacientes | Dashboard, Agenda | [ ] |
+| Agendamentos | Plataforma / pacientes | Dashboard, Agenda | [ ] |
 | Métricas derivadas | Cálculo sobre agendamentos mock | Cards da home | [ ] |
-| Histórico de confirmações e pagamentos | Máquina de estados | Agenda + Financeiro | [ ] |
+| Histórico confirmações / pagamentos | Máquina de estados | Agenda + Financeiro | [ ] |
+| Catálogo publicado | Clínica em Meus Serviços | App paciente (futuro) | [ ] |
 
 ---
 
 ## 6) Área do paciente — complementos pendentes
 
-Itens já parcialmente em `PatientWelcomePage.jsx`; marcar `[x]` só quando atender 100%.
-
-- [x] Boas-vindas e mensagem de sucesso de acesso.
-- [x] CTAs para lojas de aplicativo.
-- [x] Aviso de que agendamento é exclusivo do app.
-- [ ] Perfil read-only: Nome, CPF, Plano de Saúde (mock em `src/data/patientProfile.js`).
-- [ ] Dados de perfil via hook/service mock (mesmo padrão da clínica).
+- [x] Boas-vindas, CTAs app, bloqueio de agendamento web.
+- [ ] Perfil read-only: Nome, CPF, Plano de Saúde (`src/data/patientProfile.js`).
+- [ ] Hook/service mock de perfil paciente.
 
 ---
 
 ## 7) Qualidade técnica e UX
 
-### Credenciamento (concluído nesta fase)
+### Credenciamento — concluído
 
-- [x] Feedback de validação no wizard (alertas, bordas, hints, `aria-invalid`).
-- [x] Responsividade do wizard (`sm:` no progresso e layout).
-- [x] Aderência visual ao `src/index.css` / Tailwind no fluxo de credenciamento.
+- [x] Validação, responsividade, aderência visual (`index.css` / Tailwind).
 
-### Portal e operação (pendente)
+### Portal, catálogo e operação — pendente
 
-- [ ] Responsividade do dashboard em tablet e desktop de recepção.
-- [ ] Feedback de ação (toast ou mensagem) ao confirmar, recusar ou excluir itens mockados.
-- [ ] Transições suaves ao alterar `StatusBadge`.
-- [ ] Componentização alinhada às regras (extrair shell e formulários de `DashboardPage.jsx` / `ClinicSignupPage.jsx`).
-
----
-
-## 8) Integração futura (registrar, não implementar agora)
-
-Marcar aqui apenas quando existir código real de backend.
-
-- [ ] Autenticação API (e-mail/senha, token, `role` do backend).
-- [ ] Persistência de sessão e estados loading/erro/sucesso.
-- [ ] CRUD de clínica, serviços e agendamentos no backend.
-- [ ] Upload real de documentos.
-- [ ] Consulta de CNPJ na API (hoje só validação algorítmica no front em `isValidCnpj`).
-- [ ] Substituição de `sessionStorage` / `src/data/*.js` por endpoints sem mudar contratos dos hooks.
+- [ ] Responsividade do dashboard (tablet + desktop recepção).
+- [ ] Toast ao salvar/editar/remover serviço mock.
+- [ ] Mesmo padrão de validação do credenciamento nos formulários de serviço e perfil.
+- [ ] Feedback ao confirmar/recusar agendamentos (toast + transição em `StatusBadge`).
+- [ ] Componentização: extrair shell e formulários compartilhados.
 
 ---
 
-## 9) Critérios de pronto (validação com a clínica — fase visual)
+## 8) Integração futura (não implementar agora)
 
-- [x] Clínica **credencia** em `/cadastro-clinica` (fluxo completo mock com validações).
-- [x] Clínica vê **nome** na barra superior após credenciamento (`tradeName` via `sessionStorage`).
-- [ ] Clínica entra só pelo login da landing e vê nome real (depende de API ou vínculo mock login ↔ cadastro).
-- [ ] Clínica **edita perfil** e vê dados refletidos na UI.
-- [ ] Clínica **cadastra serviço** com valor particular e convênios.
-- [ ] Clínica vê **agenda** com cores e botões coerentes com o status.
-- [ ] Paciente **não** acessa rotas `/dashboard/*` de gestão (guard mock).
+- [ ] Autenticação API (token, `role`).
+- [ ] CRUD backend: clínica, serviços, agendamentos.
+- [ ] Tabela **`convenio_servico`** (N:N) substituindo `insuranceIds[]` no mock.
+- [ ] Upload real de documentos; consulta CNPJ na API.
+- [ ] Substituir `sessionStorage` / `src/data/*.js` por endpoints mantendo contratos dos hooks.
+
+---
+
+## 9) Critérios de pronto (validação com a clínica)
+
+### Credenciamento
+
+- [x] Fluxo completo em `/cadastro-clinica` com validações.
+- [x] Nome fantasia visível após credenciamento.
+
+### Operação e catálogo (próxima validação)
+
+- [x] Clínica navega pelo **ClinicShell** (5 itens de menu + rotas aninhadas).
+- [x] Logout limpa sessão mock e volta à home (`clearRegisteredClinic()`).
+- [ ] Clínica **cadastra serviço** com valor particular e multi-select de convênios.
+- [ ] Clínica **edita / inativa** serviço no mock.
+- [ ] Clínica **edita perfil** completo (§4.6).
+- [ ] Clínica vê **agenda** com máquina de estados coerente.
+- [ ] Paciente não acessa `/dashboard/*` (guard mock).
 
 ---
 
 ## 10) Mapa rápido de status (visão executiva)
 
-| Área | Status atual |
-|------|----------------|
+| Área | Status |
+|------|--------|
 | Landing + rotas base + modal por perfil | **Concluído** |
-| Paciente: boas-vindas + app + bloqueio agendamento | **Concluído** (perfil completo pendente) |
-| Credenciamento `/cadastro-clinica` | **Concluído** (wizard, validações, senha, mock `sessionStorage`) |
-| Dashboard pós-credenciamento | **Parcial** (nome + banner; conteúdo operacional pendente) |
-| Portal clínica (shell, mocks, métricas, agenda, serviços, perfil) | **Não iniciado** (além do placeholder) |
-| Services / hooks / TanStack Query / guards | **Parcial** (`registerClinic` + leitura sessão) |
+| Credenciamento `/cadastro-clinica` | **Concluído** |
+| Paciente: boas-vindas + app | **Concluído** (perfil pendente) |
+| Dashboard + ClinicShell | **Concluído** (§3.1; conteúdo operacional pendente) |
+| **Fundação portal (§3.1)** | **Concluído** |
+| **Mocks serviços/convênios (§3.2)** | **Parcial** (`insurances.js`, `catalogConstants`; falta `services.js`) |
+| **Meus Serviços (§4.4)** | **Não iniciado** |
+| Agenda + métricas + financeiro + perfil | **Não iniciado** |
+| TanStack Query / guards | **Parcial** (`registerClinic` apenas) |
 | API e banco | **Fora da fase atual** |
 
-**Pendente crítico (próxima entrega):** Fase 1 (shell + `src/data/` + rotas aninhadas) → home com métricas e agenda → serviços e perfil completo (§4.6).
+### Ordem de implementação recomendada
+
+```text
+1. ~~ClinicShell + rotas aninhadas + logout~~ ✓
+2. src/data/services.js + useServices (mock)  ← próximo
+3. /dashboard/servicos — listagem + modal + multi-select convênios
+4. /dashboard (métricas) + /dashboard/agenda
+5. /dashboard/perfil + /dashboard/financeiro
+```
 
 ---
 
 ## 11) Rotina de uso deste checklist
 
-1. Marcar `[x]` **somente** com evidência em código ou teste manual documentado.
-2. Itens de tabela (campos de cadastro): marcar `[x]` na coluna **UI** quando o campo existir na interface (mesmo com mock).
-3. Usar notas **“Parcial hoje”** quando só parte do item estiver implementada.
-4. Ao concluir um item de portal, verificar segregação de role (clínica vs paciente).
-5. **Foco visual:** não implementar `fetch` real; manter paridade com o produto final esperado pelo cliente.
-6. Atualizar a seção **10** quando o mapa executivo mudar.
+1. Marcar `[x]` **somente** com evidência em código ou teste manual.
+2. Priorizar §3.1 → §3.2 → §4.4 antes de agenda/perfil completo (oferta B2B2C).
+3. Multi-select de convênios: sempre por **ID** de `insurances.js` (preparar `convenio_servico`).
+4. Reutilizar padrão de validação de `clinicSignupValidation.js` em novos formulários.
+5. Atualizar §10 a cada entrega concluída.
 
 ---
 
 ## 12) Referências cruzadas
 
-- Landing e login: `docs/checklist-landing-page.md`
-- Regras do portal: `docs/.cursorrulesIndexHomeClinicle`
-- Rotas atuais: `src/App.jsx`
-- Páginas: `ClinicSignupPage.jsx`, `DashboardPage.jsx`, `PatientWelcomePage.jsx`, `LandingPage.jsx`
-- Credenciamento: `src/services/clinicService.js`, `src/utils/clinicSignupValidation.js`, `src/constants/clinicStorage.js`
+| Documento / arquivo | Uso |
+|---------------------|-----|
+| `docs/checklist-landing-page.md` | Landing e login |
+| `docs/.cursorrulesIndexHomeClinicle` | Shell, serviços, estados, UX |
+| `src/App.jsx` | Rotas aninhadas `/dashboard/*` |
+| `src/components/clinic/*` | ClinicShell, Sidebar, ClinicTopBar |
+| `src/pages/clinic/*` | Páginas do portal |
+| `src/constants/catalogConstants.js` | Categorias e contrato de campos (arquitetura) |
+| `src/constants/clinicNav.js` | Itens do menu lateral |
+| `src/data/insurances.js` | Convênios mestre (N:N futuro) |
+| *A criar:* `src/data/services.js`, `src/hooks/useServices.js` | §3.2 / §4.4 |

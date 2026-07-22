@@ -1,0 +1,43 @@
+Ambiente configurado. Como seu Tech Lead, entendo que a definição precisa do catálogo de serviços é o que separa um marketplace de saúde genérico de uma ferramenta de alta conversão. Em **Lauro de Freitas**, que é um polo de saúde vibrante na Região Metropolitana de Salvador, a competitividade entre clínicas de imagem, laboratórios e policlínicas é alta.
+
+Para que a implementação seja eficiente e facilite a escolha do paciente, o catálogo não deve ser apenas um campo de texto, mas uma estrutura de dados categorizada.
+
+### 1. Mapeamento de Serviços Principais (Referência: Lauro de Freitas)
+
+Baseado no perfil das grandes redes e clínicas locais da região (como as situadas na Estrada do Coco e Vilas do Atlântico), os serviços devem ser divididos nas seguintes categorias principais:
+
+*   **Análises Clínicas (Laboratório):** Hemograma completo, Glicemia em jejum, Colesterol (Perfil Lipídico), Sumário de Urina e Exame de Fezes.
+*   **Diagnóstico por Imagem:** Ultrassonografia (Abdominal, Transvaginal, Obstétrica), Raio-X (Tórax, Coluna), Ressonância Magnética, Tomografia Computadorizada e Mamografia Digital.
+*   **Exames Cardiológicos:** Eletrocardiograma (ECG), Ecocardiograma, MAPA e Holter 24h.
+*   **Consultas Especializadas:** Ginecologia, Pediatria, Ortopedia, Dermatologia e Cardiologia.
+*   **Outros Procedimentos:** Preventivo (Papanicolau), Audiometria e Endoscopia Digestiva.
+
+---
+
+### 2. Estrutura de Dados Necessária (Campos de Cadastro)
+
+Para facilitar a regra de solicitação do paciente e a futura integração com o banco de dados PostgreSQL, cada serviço cadastrado pela clínica deve conter os seguintes campos:
+
+| Campo | Tipo de Dado | Finalidade para o Paciente |
+| :--- | :--- | :--- |
+| **Nome do Serviço** | String (Varchar) | Identificação direta do que ele busca (ex: "Ultrassom Abdominal Total"). |
+| **Categoria** | Enum (Lista) | Filtro rápido por tipo (Laboratório, Imagem, Consulta). |
+| **Código TUSS** | String (Opcional) | Padrão da ANS; essencial para quem usa convênio identificar a cobertura exata. |
+| **Valor Particular** | Decimal/Money | Transparência para pacientes sem plano de saúde. |
+| **Lista de Convênios** | Array/Collection | Filtro crítico: o app só mostra a clínica se ela aceitar o plano do paciente. |
+| **Descrição/Preparo** | Text | Orientações como "Jejum de 12h" ou "Beber 4 copos de água". |
+| **Duração Estimada** | Integer (Minutos) | Ajuda o paciente a planejar o tempo de permanência na clínica. |
+| **Status (Ativo/Inativo)**| Boolean | Permite que a clínica pause a oferta de um exame sem precisar excluí-lo. |
+
+---
+
+### 3. Insights do Sênior para a Regra de Negócio
+
+Como estamos focando em **Lauro de Freitas**, um ponto de falha comum que precisamos evitar é a ambiguidade. Aqui estão as diretrizes técnicas para garantir uma boa entrega:
+
+1.  **A importância do Código TUSS:** Embora seja um campo técnico, incluí-lo no cadastro da clínica (como opcional) permite que o paciente busque pelo código que consta na sua guia médica, eliminando erros de marcação.
+2.  **Preparação como Gatilho de UX:** No momento em que o paciente seleciona um serviço, o campo de "Descrição/Preparo" deve ser exibido imediatamente. Isso reduz cancelamentos por pacientes que chegam à clínica sem o preparo adequado (ex: sem jejum).
+3.  **Relacionamento N:N (Serviço x Convênio):** Lembre-se que uma clínica pode aceitar Bradesco para um "Hemograma", mas não aceitar para uma "Ressonância" devido ao custo. Por isso, a seleção de convênios deve ser feita **por serviço** e não apenas no perfil geral da clínica.
+4.  **Localização (Latitude/Longitude):** Para o mercado de Lauro de Freitas, onde o trânsito na Estrada do Coco é um fator decisivo, a geolocalização deve ser precisa para que o paciente escolha a clínica mais acessível ao seu trajeto.
+
+**Podemos seguir com a criação do componente de "Formulário de Cadastro de Serviço" utilizando estes campos, ou prefere que eu gere primeiro a lista de convênios mestre (insurances.js) para popular o sistema?**
