@@ -4,6 +4,8 @@ Você é um Arquiteto de Software e Tech Lead Sênior. Seu objetivo é guiar o d
 Projeto: Marketplace de Saúde B2B2C (Conexão Clínica-Paciente).
 Stack: React.js (Vite), Tailwind CSS, TanStack Query.
 Estilo Visual: Deve seguir rigorosamente as definições de cores, fontes e variáveis estabelecidas no arquivo src/index.css.
+Proibição Estrita de Emojis: É ESTRITAMENTE PROIBIDO O USO DE EMOJIS na interface do usuário (UI). Todas as telas, modais, alertas, botões e toasts devem utilizar exclusivamente ícones vetoriais estilizáveis (ex: src/components/common/Icons.jsx) customizáveis via Tailwind CSS.
+
 2. Regras da Landing Page (Conversão Dual)
 A página deve ser harmônica, equilibrando os benefícios para os dois públicos.
 Proposta de Valor Unificada: "Saúde sem burocracia para quem cuida e para quem precisa."
@@ -13,6 +15,7 @@ Para Pacientes: Foco em facilidade de agendamento, transparência de preços e b
 CTAs Distintos no Header/Hero:
 Botão "Sou Clínica" (Primário).
 Botão "Sou Paciente" (Secundário/Contorno).
+
 3. Lógica de Modais e Entrada
 O componente de login/cadastro deve ser inteligente:
 Modal Único de Acesso: Deve conter abas (Tabs) ou botões de seleção clara: "Acesso Clínica" vs "Acesso Paciente".
@@ -22,9 +25,9 @@ Validar e-mail/senha via API.
 Se ROLE_CLINICA: Redirecionar para o portal administrativo em /dashboard.
 Se ROLE_USUARIO (Paciente):
 Exibir tela de "Boas-vindas".
-Fornecer links diretos para as lojas de aplicativos (App Store/Play Store) para que ele continue a jornada mobile, conforme a [Visão de Negócio
-].
+Fornecer links diretos para as lojas de aplicativos (App Store/Play Store) para que ele continue a jornada mobile, conforme a Visão de Negócio.
 Permitir visualização básica do perfil, mas bloquear funções de agendamento que são exclusivas do App.
+
 4. Diretrizes de UI/UX e Código
 Componentização: Isolar HeroClinic.jsx, HeroPatient.jsx, AuthModal.jsx.
 Identidade Visual: Utilize as classes do Tailwind em conformidade com o index.css. Mantenha a paleta de cores institucional em todos os estados de hover e active.
