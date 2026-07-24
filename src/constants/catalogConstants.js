@@ -6,31 +6,32 @@
 /** Categorias principais — filtro rápido no app do paciente. */
 export const SERVICE_CATEGORIES = [
   {
-    id: 'LABORATORIO',
+    id: 'laboratorio',
     label: 'Análises Clínicas (Laboratório)',
     examples: ['Hemograma', 'Glicemia', 'Perfil Lipídico', 'Sumário de Urina'],
   },
   {
-    id: 'IMAGEM',
+    id: 'imagem',
     label: 'Diagnóstico por Imagem',
     examples: ['Ultrassonografia', 'Raio-X', 'Ressonância', 'Tomografia', 'Mamografia'],
   },
   {
-    id: 'CARDIOLOGIA',
+    id: 'cardiologia',
     label: 'Exames Cardiológicos',
     examples: ['ECG', 'Ecocardiograma', 'MAPA', 'Holter 24h'],
   },
   {
-    id: 'CONSULTA',
+    id: 'consultas',
     label: 'Consultas Especializadas',
     examples: ['Ginecologia', 'Pediatria', 'Ortopedia', 'Dermatologia', 'Cardiologia'],
   },
   {
-    id: 'OUTROS',
+    id: 'outros',
     label: 'Outros Procedimentos',
     examples: ['Papanicolau', 'Audiometria', 'Endoscopia Digestiva'],
   },
 ]
+
 
 /**
  * Shape de Service (mock / API futura).

@@ -8,7 +8,6 @@ import {
   MOCK_SERVICES_CATALOG,
 } from '../data/catalogData'
 import {
-  IconSparkles,
   IconSearch,
   IconSearchOff,
   IconClose,
@@ -159,10 +158,6 @@ function LandingPage() {
       <section className="relative overflow-hidden bg-gradient-to-b from-emerald-900/5 via-slate-50 to-slate-50 pb-12 pt-8 md:pb-16 md:pt-12">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="mx-auto max-w-3xl text-center">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800 sm:text-sm">
-              <IconSparkles className="h-4 w-4 text-emerald-700" />
-              Marketplace de Saúde Dinâmico & Transparente
-            </span>
             <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl md:text-5xl">
               Busque exames, consultas e clínicas{' '}
               <span className="bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">

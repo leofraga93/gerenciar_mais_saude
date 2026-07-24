@@ -1,0 +1,8 @@
+{
+  "name": "Gerenciar Mais Saúde",
+  "description": "Sistema de gestão de clínicas e catálogo de serviços de saúde",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

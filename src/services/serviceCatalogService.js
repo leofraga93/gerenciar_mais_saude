@@ -4,7 +4,7 @@ const STORAGE_KEY = 'gerenciar_saude_clinic_services_v2'
 const MOCK_DELAY_MS = 300
 
 /**
- * Lê os serviços armazenados ou inicializa com array vazio ([]).
+ * Lê os serviços armazenados ou inicializa com o pré-cadastro padrão de serviços.
  */
 function loadFromStorage() {
   try {
@@ -13,7 +13,12 @@ function loadFromStorage() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_CLINIC_SERVICES))
       return DEFAULT_CLINIC_SERVICES
     }
-    return JSON.parse(raw)
+    const parsed = JSON.parse(raw)
+    if (Array.isArray(parsed) && parsed.length === 0) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_CLINIC_SERVICES))
+      return DEFAULT_CLINIC_SERVICES
+    }
+    return parsed
   } catch {
     return DEFAULT_CLINIC_SERVICES
   }
@@ -41,6 +46,19 @@ export function getClinicServices() {
     }, MOCK_DELAY_MS)
   })
 }
+
+/**
+ * Restaura / recarrega o pré-cadastro padrão de serviços da clínica.
+ */
+export function resetClinicServicesToDefault() {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      saveToStorage(DEFAULT_CLINIC_SERVICES)
+      resolve([...DEFAULT_CLINIC_SERVICES])
+    }, MOCK_DELAY_MS)
+  })
+}
+
 
 /**
  * Simula POST / PUT /clinics/services

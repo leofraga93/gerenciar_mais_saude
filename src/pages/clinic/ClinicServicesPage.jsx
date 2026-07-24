@@ -7,7 +7,9 @@ import {
   saveClinicService,
   toggleClinicServiceStatus,
   deleteClinicService,
+  resetClinicServicesToDefault,
 } from '../../services/serviceCatalogService'
+
 import {
   IconSearch,
   IconClose,
@@ -64,27 +66,36 @@ function ClinicServicesPage() {
   // Modal de Confirmação de Exclusão
   const [deleteConfirmId, setDeleteConfirmId] = useState(null)
 
-  // Carregar dados na montagem
-  useEffect(() => {
-    fetchServices()
-  }, [])
-
-  const fetchServices = async () => {
-    setLoading(true)
-    try {
-      const data = await getClinicServices()
-      setServices(data)
-    } catch (err) {
-      showToast('Erro ao carregar os serviços do catálogo.', 'error')
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const showToast = (message, type = 'success') => {
     setToastMessage({ message, type })
     setTimeout(() => setToastMessage(null), 4000)
   }
+
+  // Carregar dados na montagem
+  useEffect(() => {
+    let ignore = false
+    async function loadData() {
+      setLoading(true)
+      try {
+        const data = await getClinicServices()
+        if (!ignore) {
+          setServices(data)
+        }
+      } catch {
+        if (!ignore) {
+          showToast('Erro ao carregar os serviços do catálogo.', 'error')
+        }
+      } finally {
+        if (!ignore) {
+          setLoading(false)
+        }
+      }
+    }
+    loadData()
+    return () => {
+      ignore = true
+    }
+  }, [])
 
   // Filtragem dos serviços na tela
   const filteredServices = useMemo(() => {
@@ -156,6 +167,26 @@ function ClinicServicesPage() {
     setIsModalOpen(true)
   }
 
+  // Restaurar pré-cadastro padrão de serviços
+  const handleRestoreDefaultCatalog = async () => {
+    if (
+      window.confirm(
+        'Deseja carregar o pré-cadastro com todos os principais exames e consultas padrão? A lista do catálogo será redefinida para os serviços padrão do sistema.'
+      )
+    ) {
+      setLoading(true)
+      try {
+        const restored = await resetClinicServicesToDefault()
+        setServices(restored)
+        showToast('Pré-cadastro de serviços carregado com sucesso!', 'success')
+      } catch {
+        showToast('Erro ao carregar o pré-cadastro de serviços.', 'error')
+      } finally {
+        setLoading(false)
+      }
+    }
+  }
+
   // Quando o usuário escolhe um procedimento padrão do catálogo mestre
   const handleSelectStandardProcedure = (e) => {
     const stdId = e.target.value
@@ -169,18 +200,16 @@ function ClinicServicesPage() {
         ...prev,
         name: found.name,
         category: found.category,
-        tussCode: found.tussCode,
-        descriptionPrep: found.suggestedPrep,
-        durationMinutes: found.suggestedDuration,
+        tussCode: found.tussCode || '',
+        privatePrice: found.suggestedPrivatePrice ? String(found.suggestedPrivatePrice) : prev.privatePrice || '100.00',
+        insuranceIds: found.suggestedInsuranceIds || prev.insuranceIds,
+        descriptionPrep: found.suggestedPrep || '',
+        durationMinutes: found.suggestedDuration || 30,
       }))
-      setErrors((prev) => ({
-        ...prev,
-        name: null,
-        category: null,
-        descriptionPrep: null,
-      }))
+      setErrors({})
     }
   }
+
 
   // Validação em tempo real
   const validateField = (field, value) => {
@@ -269,13 +298,13 @@ function ClinicServicesPage() {
 
       setIsModalOpen(false)
       resetForm()
-    } catch (err) {
+    } catch {
       showToast('Erro ao salvar o serviço. Tente novamente.', 'error')
     }
   }
 
   // Alternar status Ativo/Inativo
-  const handleToggleStatus = async (id, currentStatus) => {
+  const handleToggleStatus = async (id) => {
     try {
       const updated = await toggleClinicServiceStatus(id)
       setServices((prev) =>
@@ -332,18 +361,50 @@ function ClinicServicesPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Meus Serviços</h1>
           <p className="mt-1 text-sm text-slate-600">
-            Cadastre os exames e consultas ofertados pela sua clínica para disponibilizá-los aos pacientes.
+            Gerencie os exames e consultas da sua clínica com pré-cadastro pronto para edição e inclusão de novos serviços.
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={openCreateModal}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700"
-        >
-          <span>+</span> Cadastrar Novo Serviço
-        </button>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            type="button"
+            onClick={handleRestoreDefaultCatalog}
+            title="Recarregar a lista padrão de serviços principais"
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-xs font-bold text-slate-700 shadow-xs transition hover:bg-slate-50 hover:text-slate-900"
+          >
+            <IconClipboard className="h-4 w-4 text-emerald-700" />
+            Recarregar Pré-Cadastro Padrão
+          </button>
+
+          <button
+            type="button"
+            onClick={openCreateModal}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700"
+          >
+            <span>+</span> Cadastrar Novo Serviço
+          </button>
+        </div>
       </div>
+
+      {/* Banner de Notificação de Pré-Cadastro */}
+      <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4 shadow-xs">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 rounded-xl bg-emerald-100 p-2 text-emerald-800 shrink-0">
+              <IconClipboard className="h-5 w-5 text-emerald-700" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-slate-900">
+                Pré-Cadastro de Serviços Pronto
+              </p>
+              <p className="mt-0.5 text-xs text-slate-700 leading-relaxed">
+                A sua clínica já inicia com os <strong>20 principais serviços</strong> pré-cadastrados (Análises Clínicas, Imagem, Cardiologia, Consultas e Procedimentos). O responsável pela clínica pode <strong>alterar valores particulares, convênios aceitos e preparos</strong>, ou <strong>lançar novos exames personalizados</strong> a qualquer momento.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
 
       {/* Cards de Métricas / Contadores */}
       <div className="mt-6 grid gap-4 sm:grid-cols-3">
@@ -580,7 +641,7 @@ function ClinicServicesPage() {
                     <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs">
                       <button
                         type="button"
-                        onClick={() => handleToggleStatus(service.id, service.active)}
+                        onClick={() => handleToggleStatus(service.id)}
                         className={`font-semibold hover:underline ${
                           service.active ? 'text-slate-600' : 'text-emerald-700'
                         }`}
