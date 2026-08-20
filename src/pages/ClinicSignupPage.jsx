@@ -186,7 +186,15 @@ function ClinicSignupPage() {
   const updateField = (name, value) => {
     setForm((prev) => {
       const next = { ...prev, [name]: value }
-      if (name === 'password' || name === 'confirmPassword') {
+      if (name === 'acceptTerms') {
+        setErrors((current) => {
+          const updated = { ...current }
+          if (value) {
+            delete updated.acceptTerms
+          }
+          return updated
+        })
+      } else if (name === 'password' || name === 'confirmPassword') {
         setErrors((current) => {
           const updated = { ...current }
           delete updated[name]
@@ -266,9 +274,9 @@ function ClinicSignupPage() {
         phone: digitsOnly(form.phone),
         referralCode: form.referralCode,
       })
-      navigate('/dashboard', {
+      navigate('/dashboard/servicos', {
         state: {
-          showCompleteProfileBanner: true,
+          welcomeFromSignup: true,
           clinicName: clinic.tradeName,
         },
       })
@@ -536,7 +544,6 @@ function ClinicSignupPage() {
                       name="acceptTerms"
                       checked={form.acceptTerms}
                       onChange={(e) => updateField('acceptTerms', e.target.checked)}
-                      onBlur={() => handleFieldBlur('acceptTerms')}
                       aria-invalid={Boolean(errors.acceptTerms)}
                       className="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
                     />

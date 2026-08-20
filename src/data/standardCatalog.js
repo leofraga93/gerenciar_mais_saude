@@ -80,6 +80,16 @@ export const STANDARD_PROCEDURES_CATALOG = [
   },
   {
     id: 'std-img-3',
+    name: 'Ultrassonografia Obstétrica com Doppler',
+    category: 'imagem',
+    tussCode: '40901264',
+    suggestedPrivatePrice: 200.0,
+    suggestedInsuranceIds: ['ins-bradesco', 'ins-unimed', 'ins-sulamerica', 'ins-amil'],
+    suggestedPrep: 'Sem necessidade de jejum. Trazer ultrassonografias anteriores e cartão de pré-natal.',
+    suggestedDuration: 30,
+  },
+  {
+    id: 'std-img-4',
     name: 'Raio-X de Tórax (PA e Perfil)',
     category: 'imagem',
     tussCode: '40804056',
@@ -89,7 +99,17 @@ export const STANDARD_PROCEDURES_CATALOG = [
     suggestedDuration: 15,
   },
   {
-    id: 'std-img-4',
+    id: 'std-img-5',
+    name: 'Raio-X de Coluna (Lombossacra / Cervical)',
+    category: 'imagem',
+    tussCode: '40803025',
+    suggestedPrivatePrice: 110.0,
+    suggestedInsuranceIds: ['ins-bradesco', 'ins-unimed', 'ins-sulamerica', 'ins-cassi'],
+    suggestedPrep: 'Sem necessidade de jejum. Usar roupas sem botões ou zíperes metálicos.',
+    suggestedDuration: 20,
+  },
+  {
+    id: 'std-img-6',
     name: 'Ressonância Magnética de Crânio',
     category: 'imagem',
     tussCode: '41101014',
@@ -99,7 +119,7 @@ export const STANDARD_PROCEDURES_CATALOG = [
     suggestedDuration: 45,
   },
   {
-    id: 'std-img-5',
+    id: 'std-img-7',
     name: 'Tomografia Computadorizada de Abdômen Total',
     category: 'imagem',
     tussCode: '41001010',
@@ -109,7 +129,7 @@ export const STANDARD_PROCEDURES_CATALOG = [
     suggestedDuration: 30,
   },
   {
-    id: 'std-img-6',
+    id: 'std-img-8',
     name: 'Mamografia Digital Bilateral',
     category: 'imagem',
     tussCode: '40808043',

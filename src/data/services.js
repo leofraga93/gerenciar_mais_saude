@@ -1,9 +1,24 @@
 import { STANDARD_PROCEDURES_CATALOG } from './standardCatalog'
 
 /**
- * Base de dados mock de serviços da clínica cadastrada.
- * Pré-cadastro pronto com os principais exames e consultas mapeados.
- * Permite que o responsável pela clínica lance algo novo e/ou altere estes serviços disponíveis.
+ * Contrato Service (mock / API futura):
+ * @typedef {Object} ClinicService
+ * @property {string} id
+ * @property {string} name
+ * @property {string} category - laboratorio | imagem | cardiologia | consultas | outros
+ * @property {string} [tussCode]
+ * @property {number} privatePrice
+ * @property {string[]} insuranceIds - N:N com insurances.js
+ * @property {string} descriptionPrep
+ * @property {number} durationMinutes
+ * @property {boolean} active
+ * @property {string} [insurancePricingNotes]
+ * @property {string} [commercialNotes]
+ */
+
+/**
+ * Base mock pré-carregada (Lauro de Freitas / arquitetura de catálogo).
+ * Persistência editável via serviceCatalogService → localStorage.
  */
 export const DEFAULT_CLINIC_SERVICES = STANDARD_PROCEDURES_CATALOG.map((item, index) => ({
   id: `cli-srv-std-${index + 1}`,

@@ -4,9 +4,9 @@ Base de comparação: `docs/.cursorrulesIndexHomeClinicle` e fluxo de negócio B
 
 **Escopo desta fase:** front-end visual + mock data. **Fora de escopo agora:** banco de dados, `fetch`/`axios` real, persistência de token. **Preparar desde já:** contratos de dados, `src/data/*.js`, `src/services/*.js`, hooks compatíveis com TanStack Query.
 
-**Última revisão:** §3.1 ClinicShell + rotas aninhadas; base de catálogo (`catalogConstants`, `insurances.js`).
+**Última revisão:** §4.4 CRUD Meus Serviços + suporte a fotos de procedimentos + catálogo mestre (25 exames/consultas de Lauro de Freitas); §4.6 Perfil da Clínica com Vitrine e Galeria de Fotos (estilo TotalPass).
 
-**Fase atual:** fundação do portal concluída (§3.1). **Próxima entrega:** mocks `services.js` + `useServices` (§3.2) → CRUD Meus Serviços (§4.4).
+**Fase atual:** Catálogo de Serviços (§4.4) e Perfil Visual (§4.6) concluídos. **Próxima entrega:** Agenda Operacional (§4.2) + Máquina de Estados de Agendamento (§4.3) → Financeiro com PIX (§4.5).
 
 ---
 
@@ -16,7 +16,7 @@ Base de comparação: `docs/.cursorrulesIndexHomeClinicle` e fluxo de negócio B
 Landing (/) → Credenciamento (/cadastro-clinica) → Login clínica (mock) → Portal (/dashboard/*)
          [x]                              [x]                    [mock]              [x shell]
                                                       ↓
-                              Perfil + Serviços + Agenda + Financeiro  [→ §3.2 / §4.4]
+                              Perfil [x] + Serviços [x] + Agenda [próximo] + Financeiro [próximo]
 ```
 
 | Etapa | Objetivo | Status |
@@ -24,9 +24,9 @@ Landing (/) → Credenciamento (/cadastro-clinica) → Login clínica (mock) →
 | Credenciamento | Criar conta da empresa (dados mínimos + acesso). | **Concluído** (mock) |
 | Login | Entrar no portal administrativo (`ROLE_CLINICA`). | **Mock** (landing; sem vínculo com senha cadastrada) |
 | **Fundação do portal** | Shell, rotas aninhadas, top bar, sidebar responsiva. | **Concluído** (§3.1) |
-| **Catálogo / oferta** | Clínica publica exames e consultas (B2B2C). | **Próximo** (§3.2 + §4.4) |
-| Perfil | Manutenção cadastral completa (endereço, PIX, documentos). | **Pendente** (§4.6) |
-| Operação | Agenda, métricas, máquina de estados. | **Pendente** (§4.1–4.3) |
+| **Catálogo / oferta** | Clínica publica exames e consultas (B2B2C + fotos). | **Concluído** (§3.2 + §4.4) |
+| **Perfil & Vitrine** | Fotos da clínica estilo TotalPass + dados cadastrais. | **Concluído** (§4.6) |
+| Operação | Agenda, métricas, máquina de estados. | **Próximo** (§4.1–4.3) |
 
 ---
 
@@ -204,28 +204,30 @@ Tela onde a clínica **oferta** exames e consultas para pacientes no app. **Prio
 
 | Campo | Obrigatório | UI | Notas |
 |--------|-------------|-----|-------|
-| Nome do procedimento | Sim | [ ] | Ex.: "Ressonância Magnética com Contraste" |
-| Código TUSS | Não | [ ] | Padrão de procedimentos médicos |
-| Categoria | Sim | [ ] | Select: **Exame**, **Consulta**, **Procedimento Especial** |
-| Descrição para o paciente | Sim | [ ] | Texto explicativo |
-| Valor particular (R$) | Sim | [ ] | Base sem convênio |
-| Duração / preparo | Recomendado | [ ] | Ex.: "Jejum de 8 horas" |
-| Ativo / inativo | Sim | [ ] | Controla visibilidade no catálogo |
-| Convênios aceitos | Sim | [ ] | **Multi-select** de `insurances.js` (IDs) |
-| Regra de valor por convênio | Recomendado | [ ] | Opcional nesta fase; preparar campo |
-| Observações comerciais | Não | [ ] | Promoções, pacotes |
+| Nome do procedimento | Sim | [x] | Ex.: "Ressonância Magnética com Contraste" |
+| Código TUSS | Não | [x] | Padrão de procedimentos médicos (6 a 8 dígitos) |
+| Categoria | Sim | [x] | Select categorizado (Laboratório, Imagem, Cardiologia, Consulta, Outros) |
+| Foto do Procedimento / Equipamento | Não | [x] | Upload direto com conversão Base64 e preview instantâneo |
+| Descrição para o paciente | Sim | [x] | Orientações de preparo (ex.: jejum) |
+| Valor particular (R$) | Sim | [x] | Base sem convênio com formatação BRL |
+| Duração estimada | Recomendado | [x] | Tempo em minutos |
+| Ativo / inativo | Sim | [x] | Toggle de visibilidade no catálogo |
+| Convênios aceitos | Sim | [x] | **Multi-select** de `insurances.js` (IDs) |
+| Regra de valor por convênio | Recomendado | [x] | Coparticipação ou tabela |
+| Observações comerciais | Não | [x] | Promoções, pacotes |
 
 **Gestão de convênios (regra de negócio):**
 
-- [ ] Multi-select dinâmico (não campo de texto).
-- [ ] Serviço só aparece para pacientes cujo plano está entre os convênios selecionados (documentar no mock; filtro real no app futuro).
-- [ ] Persistência mock do vínculo N:N (`insuranceIds[]` no serviço ↔ futuro `convenio_servico`).
+- [x] Multi-select dinâmico (não campo de texto).
+- [x] Serviço só aparece para pacientes cujo plano está entre os convênios selecionados (documentar no mock; filtro real no app futuro).
+- [x] Persistência mock do vínculo N:N (`insuranceIds[]` no serviço ↔ futuro `convenio_servico`).
 
 #### 4.4.3 UX específica de serviços
 
-- [ ] Toast ou mensagem de sucesso ao salvar serviço no mock.
-- [ ] Validação sênior reutilizada: borda vermelha, mensagens em português, `onBlur` + bloqueio de submit (padrão do credenciamento).
-- [ ] Botões e inputs com cores de `index.css` (esmeralda para ações primárias).
+- [x] Toast ou mensagem de sucesso ao salvar serviço no mock.
+- [x] Validação sênior: borda vermelha, mensagens em português, `onBlur` + bloqueio de submit.
+- [x] Botões e inputs com cores de `index.css` (esmeralda para ações primárias).
+- [x] Exibição de foto do procedimento/equipamento no `ServiceCard.jsx`.
 
 ---
 
@@ -234,38 +236,18 @@ Tela onde a clínica **oferta** exames e consultas para pacientes no app. **Prio
 - [ ] Resumo mock: receita estimada, histórico simplificado, destaque PIX.
 - [ ] Sem integração bancária real nesta fase.
 
-### 4.6 Perfil da clínica (`/dashboard/perfil`)
+### 4.6 Perfil da clínica & Vitrine de Fotos (`/dashboard/perfil`) — CONCLUÍDO
 
-Manutenção cadastral completa (complemento ao credenciamento mínimo). Campos agrupados:
+Manutenção cadastral completa e vitrine visual estilo TotalPass / Google Meu Negócio:
 
-#### Identificação e localização
+#### Vitrine e Galeria de Fotos do Estabelecimento
 
-| Campo | Obrigatório | UI |
-|--------|-------------|-----|
-| Nome fantasia | Sim | [ ] |
-| Razão social | Sim | [ ] |
-| CNPJ (somente leitura) | Sim | [ ] |
-| Inscrição estadual / municipal | Não | [ ] |
-| Endereço completo | Sim | [ ] |
-| Ponto de referência | Não | [ ] |
-| Telefones da recepção | Sim | [ ] |
-| E-mail institucional | Sim | [ ] |
-| Site / redes sociais | Não | [ ] |
-
-#### Operação, marca, responsáveis, financeiro, documentos
-
-Ver tabelas completas na revisão anterior — todos `[ ]` até implementação da tela Perfil.
-
-#### Convênios — cadastro mestre (perfil da clínica)
-
-| Campo | Obrigatório | UI |
-|--------|-------------|-----|
-| Nome da operadora | Sim | [ ] |
-| Código do prestador na operadora | Não | [ ] |
-| Documento de credenciamento (upload mock) | Não | [ ] |
-
-- [ ] Salvar perfil atualiza mock e reflete nome na top bar.
-- [ ] Banner **“Cadastro incompleto”** quando faltarem campos obrigatórios do perfil.
+- [x] Upload de fotos da clínica por arquivo local (conversão Base64 com preview instantâneo e persistência local).
+- [x] Categorização de fotos: **Fachada e Entrada**, **Recepção e Espera**, **Consultórios**, **Salas de Exames/Tecnologia** e **Estrutura**.
+- [x] Definição de **Foto de Capa Principal** (Fachada destacada para os pacientes).
+- [x] Visualizador de fotos em tela cheia (Zoom modal) e remoção rápida de fotos.
+- [x] Bloco de **Pré-visualização do Card da Clínica** (exatamente como o paciente verá na busca).
+- [x] Edição de dados cadastrais: Nome Fantasia, CNPJ, Telefones/WhatsApp, Endereço em Lauro de Freitas, Horário de Atendimento e Descrição.
 
 ---
 

@@ -84,6 +84,9 @@ export function saveClinicService(payload) {
               descriptionPrep: payload.descriptionPrep.trim(),
               durationMinutes: parseInt(payload.durationMinutes, 10) || 15,
               active: payload.active !== undefined ? payload.active : true,
+              imageUrl: payload.imageUrl?.trim() ?? '',
+              insurancePricingNotes: payload.insurancePricingNotes?.trim() ?? '',
+              commercialNotes: payload.commercialNotes?.trim() ?? '',
               updatedAt: new Date().toISOString(),
             }
             return savedRecord
@@ -102,6 +105,9 @@ export function saveClinicService(payload) {
           descriptionPrep: payload.descriptionPrep.trim(),
           durationMinutes: parseInt(payload.durationMinutes, 10) || 15,
           active: payload.active !== undefined ? payload.active : true,
+          imageUrl: payload.imageUrl?.trim() ?? '',
+          insurancePricingNotes: payload.insurancePricingNotes?.trim() ?? '',
+          commercialNotes: payload.commercialNotes?.trim() ?? '',
           createdAt: new Date().toISOString(),
         }
         updatedList = [savedRecord, ...services]

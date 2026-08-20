@@ -3,7 +3,7 @@
  * e ao futuro PostgreSQL (servico + convenio_servico N:N).
  */
 
-/** Categorias principais — filtro rápido no app do paciente. */
+/** Categorias principais — filtro rápido no app do paciente (IDs alinhados a standardCatalog.js). */
 export const SERVICE_CATEGORIES = [
   {
     id: 'laboratorio',
@@ -32,7 +32,6 @@ export const SERVICE_CATEGORIES = [
   },
 ]
 
-
 /**
  * Shape de Service (mock / API futura).
  * insuranceIds[] → relação N:N com insurances.js (convenio_servico no banco).
@@ -47,6 +46,8 @@ export const SERVICE_FIELD_KEYS = [
   'descriptionPrep',
   'durationMinutes',
   'active',
+  'insurancePricingNotes',
+  'commercialNotes',
 ]
 
 export function getCategoryLabel(categoryId) {
