@@ -1,5 +1,6 @@
 import { CLINIC_SESSION_KEY } from '../constants/clinicStorage'
 import { DEFAULT_CLINIC_PROFILE } from '../data/clinicProfileData'
+import { formatCnpj, formatPhone } from '../utils/clinicSignupValidation'
 
 const PROFILE_STORAGE_KEY = 'gerenciar_saude_clinic_profile_v1'
 const MOCK_DELAY_MS = 400
@@ -58,14 +59,14 @@ export function getClinicProfile() {
           profile = JSON.parse(raw)
         }
 
-        // Se houver dados de credenciamento na sessão, mescla o nome fantasia e contatos
+        // Se houver dados de credenciamento na sessão, mescla o nome fantasia, CNPJ e contatos
         if (clinicSession) {
           profile = {
             ...profile,
             tradeName: clinicSession.tradeName || profile.tradeName,
-            cnpj: clinicSession.cnpj || profile.cnpj,
+            cnpj: clinicSession.cnpj ? formatCnpj(clinicSession.cnpj) : profile.cnpj,
             email: clinicSession.email || profile.email,
-            phone: clinicSession.phone || profile.phone,
+            phone: clinicSession.phone ? formatPhone(clinicSession.phone) : profile.phone,
           }
         }
 

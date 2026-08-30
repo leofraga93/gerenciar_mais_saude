@@ -1,11 +1,12 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import ServiceCard from '../../components/clinic/ServiceCard'
 import ServiceFormModal from '../../components/clinic/ServiceFormModal'
 import Toast from '../../components/common/Toast'
+import ClinicActionBanner from '../../components/clinic/ClinicActionBanner'
+import { getClinicProfile } from '../../services/clinicService'
 import {
   IconCamera,
-  IconCheck,
   IconPlus,
 } from '../../components/common/Icons'
 import {
@@ -28,6 +29,17 @@ function ClinicServicesPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editingService, setEditingService] = useState(null)
   const [toast, setToast] = useState(null)
+  const [photosCount, setPhotosCount] = useState(null)
+
+  useEffect(() => {
+    getClinicProfile()
+      .then((data) => {
+        setPhotosCount(data?.photos?.length || 0)
+      })
+      .catch(() => {
+        setPhotosCount(0)
+      })
+  }, [])
 
   const showToast = (message, type = 'success') => setToast({ message, type })
 
@@ -64,37 +76,27 @@ function ClinicServicesPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 pb-12">
-      {/* Banner de Onboarding / Atualização Cadastral após Credenciamento */}
-      {isFromSignup && (
-        <div className="rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 via-white to-slate-50 p-6 shadow-sm">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-white">
-                  <IconCheck className="h-3.5 w-3.5" />
-                </span>
-                <span className="text-xs font-bold uppercase tracking-wider text-emerald-800">
-                  Credenciamento Realizado com Sucesso
-                </span>
-              </div>
-              <h2 className="text-lg font-bold text-slate-900">
-                {clinicName ? `Bem-vindo, ${clinicName}!` : 'Atualização Cadastral'}
-              </h2>
-              <p className="max-w-2xl text-xs text-slate-600">
-                Passo 1 concluído! Agora personalize seus procedimentos médicos abaixo e, em seguida,
-                anexe as fotos da fachada e ambientes para publicar o perfil completo da sua clínica.
-              </p>
-            </div>
-            <Link
-              to="/dashboard/perfil"
-              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-slate-800 transition"
-            >
-              <IconCamera className="h-4 w-4 text-emerald-400" />
-              Avançar para Fotos da Clínica
-            </Link>
-          </div>
-        </div>
-      )}
+      {/* Banner de Onboarding após Credenciamento ou Alerta de Fotos Pendentes */}
+      {isFromSignup ? (
+        <ClinicActionBanner
+          type="success"
+          badge="Credenciamento Realizado com Sucesso"
+          title={clinicName ? `Bem-vindo, ${clinicName}!` : 'Atualização Cadastral'}
+          description="Passo 1 concluído! Agora personalize seus procedimentos médicos abaixo e, em seguida, anexe as fotos da fachada e ambientes para publicar o perfil completo da sua clínica."
+          actionLabel="Avançar para Fotos da Clínica"
+          actionTo="/dashboard/perfil"
+        />
+      ) : photosCount === 0 ? (
+        <ClinicActionBanner
+          type="warning"
+          badge="Lembrete da Vitrine"
+          badgeDetail="Fotos do estabelecimento pendentes"
+          title="Cadastre as imagens da sua clínica para aumentar a atratividade"
+          description="Os pacientes conferem a fachada, consultórios e equipamentos antes de agendar. Anexe as imagens no seu perfil para concluir a apresentação visual."
+          actionLabel="Cadastrar fotos agora"
+          actionTo="/dashboard/perfil"
+        />
+      ) : null}
 
       {/* Header Principal */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -116,7 +118,7 @@ function ClinicServicesPage() {
           <button
             type="button"
             onClick={openCreate}
-            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 shadow-sm transition"
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 shadow-sm transition cursor-pointer"
           >
             <IconPlus className="h-4 w-4" />
             Novo serviço
