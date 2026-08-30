@@ -15,23 +15,82 @@ export const CLINIC_PHOTO_CATEGORIES = [
 export const DEFAULT_CLINIC_PHOTOS = []
 
 /**
- * Dados padrão de perfil da clínica
+ * Configuração padrão dos dias de funcionamento da clínica
+ */
+export const DEFAULT_OPERATING_DAYS = [
+  { key: 'seg', label: 'Segunda-feira', shortLabel: 'Seg', active: true, open: '07:00', close: '19:00' },
+  { key: 'ter', label: 'Terça-feira', shortLabel: 'Ter', active: true, open: '07:00', close: '19:00' },
+  { key: 'qua', label: 'Quarta-feira', shortLabel: 'Qua', active: true, open: '07:00', close: '19:00' },
+  { key: 'qui', label: 'Quinta-feira', shortLabel: 'Qui', active: true, open: '07:00', close: '19:00' },
+  { key: 'sex', label: 'Sexta-feira', shortLabel: 'Sex', active: true, open: '07:00', close: '19:00' },
+  { key: 'sab', label: 'Sábado', shortLabel: 'Sáb', active: true, open: '07:00', close: '13:00' },
+  { key: 'dom', label: 'Domingo', shortLabel: 'Dom', active: false, open: '08:00', close: '12:00' },
+]
+
+/**
+ * Função auxiliar para gerar a string resumida de horários a partir dos dias ativos
+ */
+export function formatOperatingHoursString(days = DEFAULT_OPERATING_DAYS) {
+  if (!days || !Array.isArray(days)) return 'Consulte horários'
+  const activeDays = days.filter((d) => d.active)
+  if (activeDays.length === 0) return 'Horários não definidos'
+
+  // Verifica se seg-sex têm mesmo horário
+  const weekdays = ['seg', 'ter', 'qua', 'qui', 'sex']
+  const weekdayItems = days.filter((d) => weekdays.includes(d.key))
+  const allWeekdaysActive = weekdayItems.every((d) => d.active)
+  const firstWd = weekdayItems[0]
+  const sameWeekdayHours =
+    allWeekdaysActive &&
+    weekdayItems.every((d) => d.open === firstWd.open && d.close === firstWd.close)
+
+  const sab = days.find((d) => d.key === 'sab')
+  const dom = days.find((d) => d.key === 'dom')
+
+  const parts = []
+  if (sameWeekdayHours) {
+    parts.push(`Segunda a Sexta: ${firstWd.open} às ${firstWd.close}`)
+  } else {
+    weekdayItems.forEach((d) => {
+      if (d.active) parts.push(`${d.shortLabel}: ${d.open} às ${d.close}`)
+    })
+  }
+
+  if (sab?.active) {
+    parts.push(`Sábado: ${sab.open} às ${sab.close}`)
+  }
+  if (dom?.active) {
+    parts.push(`Domingo: ${dom.open} às ${dom.close}`)
+  }
+
+  return parts.join(' | ')
+}
+
+/**
+ * Dados padrão de perfil da clínica.
+ * Descrição, endereço, cidade e bairro começam vazios para que o próprio usuário preencha.
  */
 export const DEFAULT_CLINIC_PROFILE = {
-  tradeName: 'Clínica Mais Saúde Vilas',
-  legalName: 'Mais Saúde Serviços Médicos e Diagnósticos Ltda',
-  cnpj: '12.345.678/0001-90',
-  phone: '(71) 3289-4000',
-  whatsapp: '(71) 98765-4321',
-  email: 'contato@maissaudevilas.com.br',
-  addressStreet: 'Av. Santos Dumont (Estrada do Coco), 4500',
-  neighborhood: 'Vilas do Atlântico',
-  city: 'Lauro de Freitas',
-  state: 'BA',
-  zipCode: '42702-400',
-  referencePoint: 'Ao lado do Shopping Estrada do Coco',
-  openingHours: 'Segunda a Sexta: 07h às 19h | Sábado: 07h às 13h',
-  description: 'Estrutura completa e moderna com atendimento humanizado, diagnósticos precisos por imagem, análises laboratoriais e mais de 15 especialidades médicas em Lauro de Freitas.',
+  tradeName: '',
+  legalName: '',
+  cnpj: '',
+  phone: '',
+  whatsapp: '',
+  email: '',
+  // Endereço completo estruturado (vazio por padrão)
+  addressStreet: '',
+  addressNumber: '',
+  addressComplement: '',
+  neighborhood: '',
+  city: '',
+  state: '',
+  zipCode: '',
+  referencePoint: '',
+  // Horários
+  operatingDays: DEFAULT_OPERATING_DAYS,
+  openingHours: formatOperatingHoursString(DEFAULT_OPERATING_DAYS),
+  // Descrição vazia por padrão
+  description: '',
   amenities: ['Estacionamento Gratuito', 'Acessibilidade PCD', 'Wi-Fi para Pacientes', 'Café e Água', 'Resultados Online'],
   photos: [],
 }

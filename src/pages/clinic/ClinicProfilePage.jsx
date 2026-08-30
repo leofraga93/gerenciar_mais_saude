@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import {
   CLINIC_PHOTO_CATEGORIES,
   DEFAULT_CLINIC_PROFILE,
+  DEFAULT_OPERATING_DAYS,
+  formatOperatingHoursString,
 } from '../../data/clinicProfileData'
 import {
   getClinicProfile,
@@ -9,6 +11,8 @@ import {
 } from '../../services/clinicService'
 import FormField, { inputClassName } from '../../components/common/FormField'
 import Toast from '../../components/common/Toast'
+import ClinicActionBanner from '../../components/clinic/ClinicActionBanner'
+import { ClinicScheduleEditor } from '../../components/clinic/ClinicScheduleEditor'
 import {
   IconBuilding,
   IconCamera,
@@ -48,16 +52,22 @@ function ClinicProfilePage() {
   const [zoomPhoto, setZoomPhoto] = useState(null)
 
   const fileInputRef = useRef(null)
+  const uploadSectionRef = useRef(null)
 
   const showToast = (message, type = 'success') => setToast({ message, type })
 
   const loadData = async () => {
     try {
       const data = await getClinicProfile()
-      setProfile(data)
-      setInfoForm(data)
-      const initialPhotos = data.photos || []
-      // Garante que se houver fotos mas nenhuma for capa, a primeira é marcada como capa
+      // Garante que haja operatingDays configurado
+      const loadedProfile = {
+        ...DEFAULT_CLINIC_PROFILE,
+        ...data,
+        operatingDays: data.operatingDays || DEFAULT_OPERATING_DAYS,
+      }
+      setProfile(loadedProfile)
+      setInfoForm(loadedProfile)
+      const initialPhotos = loadedProfile.photos || []
       if (initialPhotos.length > 0 && !initialPhotos.some((p) => p.isCover)) {
         initialPhotos[0].isCover = true
       }
@@ -106,7 +116,6 @@ function ClinicProfilePage() {
           setPhotos((prev) => {
             const hasCover = prev.some((p) => p.isCover)
             const updated = [...prev, ...newPhotos]
-            // Se nenhuma for capa, a primeira vira capa
             if (!hasCover && updated.length > 0) {
               updated[0].isCover = true
             }
@@ -138,49 +147,58 @@ function ClinicProfilePage() {
   const handleDrop = (e) => {
     e.preventDefault()
     setIsDragging(false)
-    processFiles(e.dataTransfer.files)
+    if (e.dataTransfer?.files) {
+      processFiles(e.dataTransfer.files)
+    }
   }
 
-  // Atualizações inline por foto (mantém a ordem na lista de anexo)
-  const updatePhotoTitle = (id, newTitle) => {
-    setPhotos((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, title: newTitle } : p)),
-    )
+  const handleScrollToUpload = () => {
+    if (uploadSectionRef.current) {
+      uploadSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+    fileInputRef.current?.click()
   }
 
-  const updatePhotoCategory = (id, newCategory) => {
+  // Definir foto de capa principal
+  const handleSetCover = (photoId) => {
     setPhotos((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, category: newCategory } : p)),
-    )
-  }
-
-  // Marca capa sem alterar a ordem da lista superior (a reordenação é feita dinamicamente na pré-visualização)
-  const setCoverPhoto = (id) => {
-    setPhotos((prev) =>
-      prev.map((p) => ({
-        ...p,
-        isCover: p.id === id,
+      prev.map((photo) => ({
+        ...photo,
+        isCover: photo.id === photoId,
       })),
     )
-    // No carrossel da pré-visualização, reinicia no índice 0 (onde a capa é posicionada)
     setCarouselIndex(0)
-    showToast('Foto de capa definida! Refletida na 1ª posição da pré-visualização.')
+    showToast('Foto de capa principal atualizada!')
   }
 
-  const removePhoto = (id) => {
+  // Atualizar título/legenda da foto
+  const handleUpdateTitle = (photoId, newTitle) => {
+    setPhotos((prev) =>
+      prev.map((p) => (p.id === photoId ? { ...p, title: newTitle } : p)),
+    )
+  }
+
+  // Atualizar categoria da foto
+  const handleUpdateCategory = (photoId, newCategory) => {
+    setPhotos((prev) =>
+      prev.map((p) => (p.id === photoId ? { ...p, category: newCategory } : p)),
+    )
+  }
+
+  // Excluir foto
+  const handleDeletePhoto = (photoId) => {
     setPhotos((prev) => {
-      const remaining = prev.filter((p) => p.id !== id)
-      const hasCover = remaining.some((p) => p.isCover)
-      if (!hasCover && remaining.length > 0) {
-        remaining[0].isCover = true
+      const filtered = prev.filter((p) => p.id !== photoId)
+      if (filtered.length > 0 && !filtered.some((p) => p.isCover)) {
+        filtered[0].isCover = true
       }
-      return remaining
+      return filtered
     })
     setCarouselIndex(0)
-    showToast('Foto removida.')
+    showToast('Foto removida com sucesso.')
   }
 
-  // Salvar galeria e informações
+  // Salvar galeria e persistir
   const handleSaveAllPhotos = async () => {
     setIsSaving(true)
     try {
@@ -199,7 +217,14 @@ function ClinicProfilePage() {
     e.preventDefault()
     setIsSavingInfo(true)
     try {
-      const updatedProfile = { ...infoForm, photos }
+      // Garante formatação consistente do horário
+      const openingHours =
+        formatOperatingHoursString(infoForm.operatingDays) || infoForm.openingHours
+      const updatedProfile = {
+        ...infoForm,
+        openingHours,
+        photos,
+      }
       await saveClinicProfile(updatedProfile)
       setProfile(updatedProfile)
       setIsEditingInfo(false)
@@ -211,18 +236,16 @@ function ClinicProfilePage() {
     }
   }
 
-  // Toggle do Accordion da Visão do Paciente
   const handleTogglePatientPreview = () => {
     setShowPatientPreview((prev) => {
       const nextState = !prev
       if (nextState) {
-        setCarouselIndex(0) // Sempre abre na 1ª foto da pré-visualização (a capa)
+        setCarouselIndex(0)
       }
       return nextState
     })
   }
 
-  // Lista de fotos para a pré-visualização: a capa é posicionada dinamicamente na 1ª posição
   const previewPhotos = (() => {
     if (!photos || photos.length === 0) return []
     const coverIdx = photos.findIndex((p) => p.isCover)
@@ -232,7 +255,6 @@ function ClinicProfilePage() {
     return [cover, ...others]
   })()
 
-  // Navegação no carrossel da pré-visualização do paciente
   const currentPhoto = previewPhotos[carouselIndex] || previewPhotos[0] || null
 
   const handleNextPhoto = () => {
@@ -245,11 +267,61 @@ function ClinicProfilePage() {
     setCarouselIndex((prev) => (prev - 1 + previewPhotos.length) % previewPhotos.length)
   }
 
-  // Dados da clínica em tempo real para o preview
   const liveClinicData = isEditingInfo ? infoForm : profile
+
+  // Formatação do endereço completo
+  const formattedAddress = (() => {
+    const p = profile
+    const parts = []
+    if (p.addressStreet) parts.push(p.addressStreet)
+    if (p.addressNumber) parts.push(`nº ${p.addressNumber}`)
+    if (p.addressComplement) parts.push(`(${p.addressComplement})`)
+    
+    const cityState = [p.city, p.state].filter(Boolean).join('/')
+    if (cityState) parts.push(cityState)
+    if (p.zipCode) parts.push(`CEP: ${p.zipCode}`)
+
+    return parts.length > 0 ? parts.join(', ') : 'Endereço não informado'
+  })()
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 pb-16">
+      {/* Banner de Ação Recomendada Padronizado */}
+      {photos.length === 0 ? (
+        <ClinicActionBanner
+          type="warning"
+          badge="Ação recomendada"
+          badgeDetail="Nenhuma foto cadastrada"
+          title="Cadastre as imagens da sua clínica para aumentar a atratividade"
+          description="Clínicas com fotos da fachada, recepção e consultórios recebem até 3x mais agendamentos. Envie imagens do seu estabelecimento para completar a vitrine."
+          actionLabel="Adicionar fotos agora"
+          onAction={handleScrollToUpload}
+          actionIcon={IconUpload}
+        />
+      ) : !photos.some((p) => p.isCover) ? (
+        <ClinicActionBanner
+          type="warning"
+          badge="Ação recomendada"
+          badgeDetail="Foto de capa não definida"
+          title="Defina uma foto como capa principal do estabelecimento"
+          description="A foto de capa é o destaque visual principal exibido nas buscas e no topo do carrossel da vitrine para os pacientes."
+          actionLabel="Gerenciar fotos"
+          onAction={handleScrollToUpload}
+          actionIcon={IconCamera}
+        />
+      ) : !profile.addressStreet && !isEditingInfo ? (
+        <ClinicActionBanner
+          type="warning"
+          badge="Ação recomendada"
+          badgeDetail="Endereço não preenchido"
+          title="Complete os dados de endereço e localização da clínica"
+          description="Informe logradouro, número, bairro e cidade para que os pacientes encontrem a sua unidade facilmente nos mapas e na busca."
+          actionLabel="Editar dados cadastrais"
+          onAction={() => setIsEditingInfo(true)}
+          actionIcon={IconPencil}
+        />
+      ) : null}
+
       {/* Header Principal */}
       <div className="flex flex-col gap-2">
         <h1 className="text-2xl font-bold text-slate-900">
@@ -264,13 +336,27 @@ function ClinicProfilePage() {
 
       {/* 1. Dados Básicos do Estabelecimento */}
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4">
           <div>
-            <h2 className="text-lg font-bold text-slate-900">Informações da Empresa</h2>
-            <p className="text-xs text-slate-500">
-              Dados do estabelecimento exibidos aos pacientes
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h2 className="text-lg font-bold text-slate-900">Informações da Empresa</h2>
+              {/* CNPJ em Evidência */}
+              <div className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-900 shadow-2xs">
+                <IconBuilding className="h-3.5 w-3.5 text-emerald-700" />
+                <span>CNPJ:</span>
+                <span className="font-mono text-emerald-800">
+                  {profile.cnpj || 'Não informado'}
+                </span>
+                <span className="ml-1 inline-flex items-center rounded-sm bg-emerald-600 px-1.5 py-0.2 text-[10px] font-semibold text-white">
+                  Credenciada
+                </span>
+              </div>
+            </div>
+            <p className="mt-1 text-xs text-slate-500">
+              Dados do estabelecimento exibidos aos pacientes e sincronizados na plataforma
             </p>
           </div>
+
           {!isEditingInfo ? (
             <button
               type="button"
@@ -295,164 +381,353 @@ function ClinicProfilePage() {
         </div>
 
         {!isEditingInfo ? (
-          <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            <div>
-              <p className="text-xs font-medium text-slate-400">Nome Fantasia</p>
-              <p className="mt-0.5 text-sm font-semibold text-slate-800">
-                {profile.tradeName || 'Não informado'}
-              </p>
+          <div className="mt-6 space-y-6">
+            {/* Grid 2 Colunas com a sequência solicitada */}
+            <div className="grid gap-6 md:grid-cols-2">
+              {/* PRIMEIRA COLUNA:
+                  1. Nome Fantasia
+                  2. Endereço Completo
+                  3. Horário de Atendimento */}
+              <div className="space-y-5 rounded-xl border border-slate-100 bg-slate-50/40 p-4">
+                <div className="border-b border-slate-200/60 pb-3">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    1. Nome Fantasia
+                  </p>
+                  <p className="mt-1 text-base font-bold text-slate-900">
+                    {profile.tradeName || 'Não informado'}
+                  </p>
+                </div>
+
+                <div className="border-b border-slate-200/60 pb-3">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    2. Endereço Completo
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-slate-800">
+                    {formattedAddress}
+                  </p>
+                  {profile.referencePoint && (
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      Ref: {profile.referencePoint}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    3. Horário de Atendimento
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-emerald-800">
+                    {profile.openingHours || 'Consulte horários com a recepção'}
+                  </p>
+                </div>
+              </div>
+
+              {/* SEGUNDA COLUNA:
+                  1. Telefone Comercial / WhatsApp
+                  2. Bairro
+                  3. E-mail */}
+              <div className="space-y-5 rounded-xl border border-slate-100 bg-slate-50/40 p-4">
+                <div className="border-b border-slate-200/60 pb-3">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    1. Telefone Comercial / WhatsApp
+                  </p>
+                  <p className="mt-1 text-base font-semibold text-slate-800">
+                    {profile.phone || 'Não informado'}
+                    {profile.whatsapp && (
+                      <span className="ml-2 text-xs font-normal text-slate-500">
+                        • WhatsApp: {profile.whatsapp}
+                      </span>
+                    )}
+                  </p>
+                </div>
+
+                <div className="border-b border-slate-200/60 pb-3">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    2. Bairro
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-slate-800">
+                    {profile.neighborhood || 'Não informado'}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    3. E-mail Comercial
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-slate-800">
+                    {profile.email || 'Não informado'}
+                  </p>
+                </div>
+              </div>
             </div>
 
-            <div>
-              <p className="text-xs font-medium text-slate-400">CNPJ</p>
-              <p className="mt-0.5 text-sm font-semibold text-slate-800">
-                {profile.cnpj || 'Não informado'}
-              </p>
-            </div>
-
-            <div>
-              <p className="text-xs font-medium text-slate-400">Telefone / WhatsApp</p>
-              <p className="mt-0.5 text-sm font-semibold text-slate-800">
-                {profile.phone} {profile.whatsapp ? `• ${profile.whatsapp}` : ''}
-              </p>
-            </div>
-
-            <div>
-              <p className="text-xs font-medium text-slate-400">Endereço (Lauro de Freitas / BA)</p>
-              <p className="mt-0.5 text-sm font-semibold text-slate-800">
-                {profile.addressStreet}, {profile.neighborhood}
-              </p>
-            </div>
-
-            <div>
-              <p className="text-xs font-medium text-slate-400">Horário de Funcionamento</p>
-              <p className="mt-0.5 text-sm font-semibold text-slate-800">
-                {profile.openingHours || 'Segunda a Sexta: 07h às 19h'}
-              </p>
-            </div>
-
-            <div>
-              <p className="text-xs font-medium text-slate-400">E-mail Comercial</p>
-              <p className="mt-0.5 text-sm font-semibold text-slate-800">
-                {profile.email || 'contato@clinica.com.br'}
-              </p>
-            </div>
-
-            <div className="sm:col-span-2 lg:col-span-3">
-              <p className="text-xs font-medium text-slate-400">Descrição do Estabelecimento</p>
-              <p className="mt-1 text-sm text-slate-700 leading-relaxed">
-                {profile.description ||
-                  'Estrutura completa com equipamentos modernos, atendimento humanizado e facilidade de agendamento em Lauro de Freitas.'}
-              </p>
+            {/* ABAIXO: Descrição da Estrutura e Diferenciais (Largura Total) */}
+            <div className="rounded-xl border border-slate-100 bg-slate-50/40 p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Descrição da Estrutura e Diferenciais
+                </p>
+                {!profile.description && (
+                  <span className="text-[11px] font-medium text-amber-600">
+                    Campo a ser preenchido pela clínica
+                  </span>
+                )}
+              </div>
+              {profile.description ? (
+                <p className="mt-2 text-sm text-slate-700 leading-relaxed">
+                  {profile.description}
+                </p>
+              ) : (
+                <div className="mt-2 rounded-lg border border-dashed border-slate-200 bg-white p-4 text-center">
+                  <p className="text-xs text-slate-500">
+                    Nenhuma descrição informada ainda. Clique em "Editar dados" para detalhar os
+                    diferenciais e instalações da sua clínica.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         ) : (
-          <form onSubmit={handleSaveInfo} className="mt-5 space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <FormField label="Nome Fantasia" htmlFor="tradeName" required>
-                <input
-                  id="tradeName"
-                  type="text"
-                  value={infoForm.tradeName}
-                  onChange={(e) => setInfoForm({ ...infoForm, tradeName: e.target.value })}
-                  className={inputClassName(false)}
-                  required
-                />
-              </FormField>
+          <form onSubmit={handleSaveInfo} className="mt-6 space-y-6">
+            <div className="grid gap-6 md:grid-cols-2">
+              {/* PRIMEIRA COLUNA (EDIÇÃO):
+                  1. Nome Fantasia
+                  2. Endereço Completo (Logradouro, Número, Complemento, Cidade, Estado, Ponto de Ref.)
+                  3. Horário de Atendimento */}
+              <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-4">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-700">
+                  Coluna 1: Identificação & Localização
+                </h3>
 
-              <FormField label="Telefone Comercial / WhatsApp" htmlFor="phone" required>
-                <input
-                  id="phone"
-                  type="text"
-                  value={infoForm.phone}
-                  onChange={(e) => setInfoForm({ ...infoForm, phone: e.target.value })}
-                  className={inputClassName(false)}
-                  required
-                />
-              </FormField>
+                <FormField label="Nome Fantasia" htmlFor="tradeName" required>
+                  <input
+                    id="tradeName"
+                    type="text"
+                    value={infoForm.tradeName}
+                    onChange={(e) => setInfoForm({ ...infoForm, tradeName: e.target.value })}
+                    className={inputClassName(false)}
+                    placeholder="Ex: Clínica Vida Plena"
+                    required
+                  />
+                </FormField>
 
-              <FormField label="Endereço Completo" htmlFor="addressStreet">
-                <input
-                  id="addressStreet"
-                  type="text"
-                  value={infoForm.addressStreet}
-                  onChange={(e) => setInfoForm({ ...infoForm, addressStreet: e.target.value })}
-                  className={inputClassName(false)}
-                  placeholder="Av. Santos Dumont (Estrada do Coco), 4500"
-                />
-              </FormField>
+                {/* Subbloco de Endereço Completo */}
+                <div className="space-y-3 rounded-lg border border-slate-100 bg-slate-50/60 p-3">
+                  <p className="text-xs font-semibold text-slate-700">Endereço Completo</p>
 
-              <FormField label="Bairro (Lauro de Freitas)" htmlFor="neighborhood">
-                <input
-                  id="neighborhood"
-                  type="text"
-                  value={infoForm.neighborhood}
-                  onChange={(e) => setInfoForm({ ...infoForm, neighborhood: e.target.value })}
-                  className={inputClassName(false)}
-                  placeholder="Vilas do Atlântico / Centro"
-                />
-              </FormField>
+                  <FormField label="Logradouro / Avenida / Rua" htmlFor="addressStreet">
+                    <input
+                      id="addressStreet"
+                      type="text"
+                      value={infoForm.addressStreet || ''}
+                      onChange={(e) =>
+                        setInfoForm({ ...infoForm, addressStreet: e.target.value })
+                      }
+                      className={inputClassName(false)}
+                      placeholder="Ex: Av. Santos Dumont"
+                    />
+                  </FormField>
 
-              <FormField label="Horário de Atendimento" htmlFor="openingHours">
-                <input
-                  id="openingHours"
-                  type="text"
-                  value={infoForm.openingHours}
-                  onChange={(e) => setInfoForm({ ...infoForm, openingHours: e.target.value })}
-                  className={inputClassName(false)}
-                  placeholder="Segunda a Sexta: 07h às 19h | Sábado: 07h às 13h"
-                />
-              </FormField>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <FormField label="Número" htmlFor="addressNumber">
+                      <input
+                        id="addressNumber"
+                        type="text"
+                        value={infoForm.addressNumber || ''}
+                        onChange={(e) =>
+                          setInfoForm({ ...infoForm, addressNumber: e.target.value })
+                        }
+                        className={inputClassName(false)}
+                        placeholder="Ex: 4500 ou S/N"
+                      />
+                    </FormField>
 
-              <FormField label="E-mail de Contato" htmlFor="email">
-                <input
-                  id="email"
-                  type="email"
-                  value={infoForm.email}
-                  onChange={(e) => setInfoForm({ ...infoForm, email: e.target.value })}
+                    <FormField label="Complemento" htmlFor="addressComplement">
+                      <input
+                        id="addressComplement"
+                        type="text"
+                        value={infoForm.addressComplement || ''}
+                        onChange={(e) =>
+                          setInfoForm({ ...infoForm, addressComplement: e.target.value })
+                        }
+                        className={inputClassName(false)}
+                        placeholder="Ex: Sala 102, Bloco B"
+                      />
+                    </FormField>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2.5">
+                    <div className="col-span-2">
+                      <FormField label="Cidade" htmlFor="city">
+                        <input
+                          id="city"
+                          type="text"
+                          value={infoForm.city || ''}
+                          onChange={(e) =>
+                            setInfoForm({ ...infoForm, city: e.target.value })
+                          }
+                          className={inputClassName(false)}
+                          placeholder="Digite a cidade"
+                        />
+                      </FormField>
+                    </div>
+
+                    <div>
+                      <FormField label="Sigla / UF" htmlFor="state">
+                        <input
+                          id="state"
+                          type="text"
+                          maxLength={2}
+                          value={infoForm.state || ''}
+                          onChange={(e) =>
+                            setInfoForm({
+                              ...infoForm,
+                              state: e.target.value.toUpperCase(),
+                            })
+                          }
+                          className={inputClassName(false)}
+                          placeholder="UF"
+                        />
+                      </FormField>
+                    </div>
+                  </div>
+
+                  <FormField label="Ponto de Referência" htmlFor="referencePoint">
+                    <input
+                      id="referencePoint"
+                      type="text"
+                      value={infoForm.referencePoint || ''}
+                      onChange={(e) =>
+                        setInfoForm({ ...infoForm, referencePoint: e.target.value })
+                      }
+                      className={inputClassName(false)}
+                      placeholder="Ex: Próximo ao Shopping Estrada do Coco"
+                    />
+                  </FormField>
+                </div>
+              </div>
+
+              {/* SEGUNDA COLUNA (EDIÇÃO):
+                  1. Telefone Comercial / WhatsApp
+                  2. Bairro
+                  3. E-mail */}
+              <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-4">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-700">
+                  Coluna 2: Contatos & Região
+                </h3>
+
+                <FormField label="Telefone Comercial Principal" htmlFor="phone" required>
+                  <input
+                    id="phone"
+                    type="text"
+                    value={infoForm.phone}
+                    onChange={(e) => setInfoForm({ ...infoForm, phone: e.target.value })}
+                    className={inputClassName(false)}
+                    placeholder="(71) 3289-4000"
+                    required
+                  />
+                </FormField>
+
+                <FormField label="WhatsApp Comercial (Opcional)" htmlFor="whatsapp">
+                  <input
+                    id="whatsapp"
+                    type="text"
+                    value={infoForm.whatsapp || ''}
+                    onChange={(e) => setInfoForm({ ...infoForm, whatsapp: e.target.value })}
+                    className={inputClassName(false)}
+                    placeholder="(71) 98765-4321"
+                  />
+                </FormField>
+
+                <FormField label="Bairro" htmlFor="neighborhood">
+                  <input
+                    id="neighborhood"
+                    type="text"
+                    value={infoForm.neighborhood || ''}
+                    onChange={(e) => setInfoForm({ ...infoForm, neighborhood: e.target.value })}
+                    className={inputClassName(false)}
+                    placeholder="Ex: Vilas do Atlântico, Centro, Pituba"
+                  />
+                </FormField>
+
+                <FormField label="E-mail de Contato" htmlFor="email">
+                  <input
+                    id="email"
+                    type="email"
+                    value={infoForm.email || ''}
+                    onChange={(e) => setInfoForm({ ...infoForm, email: e.target.value })}
+                    className={inputClassName(false)}
+                    placeholder="contato@clinica.com.br"
+                  />
+                </FormField>
+              </div>
+            </div>
+
+            {/* SELEÇÃO DE DIAS E HORÁRIOS DE ATENDIMENTO (LARGURA TOTAL E PERFEITAMENTE ALINHADO) */}
+            <div className="rounded-xl border border-slate-200 bg-white p-4">
+              <ClinicScheduleEditor
+                operatingDays={infoForm.operatingDays}
+                onChange={(newDays, newString) =>
+                  setInfoForm({
+                    ...infoForm,
+                    operatingDays: newDays,
+                    openingHours: newString,
+                  })
+                }
+              />
+            </div>
+
+            {/* ABAIXO: Descrição da Estrutura e Diferenciais */}
+            <div className="rounded-xl border border-slate-200 bg-white p-4">
+              <FormField
+                label="Descrição da Estrutura e Diferenciais (preenchido pela clínica)"
+                htmlFor="description"
+                hint="Descreva as salas de atendimento, equipamentos de diagnóstico, estacionamento e diferenciais para os pacientes."
+              >
+                <textarea
+                  id="description"
+                  rows={4}
+                  value={infoForm.description || ''}
+                  onChange={(e) => setInfoForm({ ...infoForm, description: e.target.value })}
                   className={inputClassName(false)}
+                  placeholder="Ex: Clínica com 6 consultórios amplos, sala de espera climatizada com café, estacionamento próprio gratuito e equipamentos de ultrassom 4D de última geração."
                 />
               </FormField>
             </div>
 
-            <FormField label="Descrição da Estrutura e Diferenciais" htmlFor="description">
-              <textarea
-                id="description"
-                rows={3}
-                value={infoForm.description}
-                onChange={(e) => setInfoForm({ ...infoForm, description: e.target.value })}
-                className={inputClassName(false)}
-                placeholder="Apresente os diferenciais da clínica para os pacientes..."
-              />
-            </FormField>
-
-            <div className="flex justify-end gap-3 pt-3">
+            <div className="flex justify-end gap-3 pt-2">
               <button
                 type="button"
-                onClick={() => setIsEditingInfo(false)}
-                className="rounded-lg border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                onClick={() => {
+                  setInfoForm(profile)
+                  setIsEditingInfo(false)
+                }}
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
                 disabled={isSavingInfo}
-                className="rounded-lg bg-emerald-600 px-5 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
               >
-                {isSavingInfo ? 'Salvando...' : 'Salvar Informações'}
+                <IconCheck className="h-4 w-4" />
+                {isSavingInfo ? 'Salvando...' : 'Salvar dados cadastrais'}
               </button>
             </div>
           </form>
         )}
       </section>
 
-      {/* 2. Anexo de Fotos & Gestão Simples da Galeria (Mantém a ordem natural dos uploads) */}
-      <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      {/* 2. Upload e Gestão de Fotos com Categorias */}
+      <section ref={uploadSectionRef} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4">
           <div>
-            <h2 className="text-lg font-bold text-slate-900">Fotos do Estabelecimento</h2>
+            <h2 className="text-lg font-bold text-slate-900">
+              Galeria de Fotos do Estabelecimento
+            </h2>
             <p className="text-xs text-slate-500">
-              Anexe fotos da fachada, recepção, consultórios, exames e estacionamento
+              Anexe fotos da fachada, recepção, consultórios, exames e estrutura física da clínica.
             </p>
           </div>
           {photos.length > 0 && (
@@ -570,20 +845,20 @@ function ClinicProfilePage() {
                         <input
                           type="text"
                           value={photo.title}
-                          onChange={(e) => updatePhotoTitle(photo.id, e.target.value)}
-                          placeholder="Ex: Entrada Principal na Estrada do Coco"
-                          className="mt-1 w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                          onChange={(e) => handleUpdateTitle(photo.id, e.target.value)}
+                          placeholder="Ex: Fachada Principal"
+                          className="mt-0.5 w-full rounded-md border border-slate-300 px-2.5 py-1 text-xs focus:border-emerald-500 focus:outline-hidden"
                         />
                       </div>
 
                       <div>
                         <label className="block text-[11px] font-semibold text-slate-600">
-                          Tipo de Ambiente
+                          Ambiente / Categoria
                         </label>
                         <select
                           value={photo.category}
-                          onChange={(e) => updatePhotoCategory(photo.id, e.target.value)}
-                          className="mt-1 w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                          onChange={(e) => handleUpdateCategory(photo.id, e.target.value)}
+                          className="mt-0.5 w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-xs focus:border-emerald-500 focus:outline-hidden"
                         >
                           {CLINIC_PHOTO_CATEGORIES.map((cat) => (
                             <option key={cat.id} value={cat.id}>
@@ -595,26 +870,34 @@ function ClinicProfilePage() {
                     </div>
                   </div>
 
-                  {/* Controles de Capa e Exclusão */}
-                  <div className="flex items-center justify-between border-t border-slate-100 pt-2.5">
-                    <label className="flex cursor-pointer items-center gap-2">
-                      <input
-                        type="radio"
-                        name="coverPhotoGroup"
-                        checked={photo.isCover}
-                        onChange={() => setCoverPhoto(photo.id)}
-                        className="h-4 w-4 text-emerald-600 focus:ring-emerald-500"
-                      />
-                      <span className={`text-xs font-semibold ${photo.isCover ? 'text-emerald-800' : 'text-slate-600'}`}>
-                        {photo.isCover ? 'Foto de Capa Principal (Fachada)' : 'Definir como Capa Principal'}
-                      </span>
-                    </label>
+                  {/* Ações da foto: Capa e Exclusão */}
+                  <div className="flex items-center justify-between border-t border-slate-100 pt-2.5 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => handleSetCover(photo.id)}
+                      className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 font-medium transition ${
+                        photo.isCover
+                          ? 'bg-emerald-600 text-white shadow-2xs font-semibold'
+                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      }`}
+                    >
+                      {photo.isCover ? (
+                        <>
+                          <IconStarFilled className="h-3.5 w-3.5 text-white" />
+                          Foto de Capa
+                        </>
+                      ) : (
+                        <>
+                          <IconStar className="h-3.5 w-3.5 text-slate-400" />
+                          Definir como Capa
+                        </>
+                      )}
+                    </button>
 
                     <button
                       type="button"
-                      onClick={() => removePhoto(photo.id)}
-                      className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-red-600 transition"
-                      title="Excluir foto"
+                      onClick={() => handleDeletePhoto(photo.id)}
+                      className="inline-flex items-center gap-1 text-red-600 hover:text-red-700 font-medium"
                     >
                       <IconTrash className="h-3.5 w-3.5" />
                       Remover
@@ -623,88 +906,57 @@ function ClinicProfilePage() {
                 </div>
               ))}
             </div>
-
-            <div className="flex justify-end pt-2">
-              <button
-                type="button"
-                onClick={handleSaveAllPhotos}
-                disabled={isSaving}
-                className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2.5 text-xs font-semibold text-white hover:bg-emerald-700 shadow-sm transition disabled:opacity-60"
-              >
-                <IconCheck className="h-4 w-4" />
-                {isSaving ? 'Salvando fotos...' : 'Salvar todas as fotos e legendas'}
-              </button>
-            </div>
           </div>
         )}
       </section>
 
-      {/* 3. Visão do Paciente (Accordion Fechado por Padrão — Aqui a Capa é Dinamicamente a 1ª Foto do Carrossel) */}
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition">
-        {/* Cabeçalho do Accordion (Toggle) */}
+      {/* 3. Acordeão: Como o Paciente Vê o Perfil e as Fotos */}
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <button
           type="button"
           onClick={handleTogglePatientPreview}
-          className="flex w-full items-center justify-between bg-slate-50/80 px-6 py-4 text-left transition hover:bg-slate-100"
+          className="flex w-full items-center justify-between p-6 text-left transition hover:bg-slate-50 cursor-pointer"
         >
           <div className="flex items-center gap-3">
-            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 text-white">
-              <IconEye className="h-4 w-4" />
-            </span>
+            <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <IconEye className="h-5 w-5" />
+            </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-sm font-bold text-slate-900">
-                  Visão do Paciente (Pré-visualização do Card e Fotos)
-                </h2>
-                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
-                  {photos.length > 0 ? `${photos.length} fotos carregadas` : 'Sem fotos'}
-                </span>
-              </div>
+              <h2 className="text-lg font-bold text-slate-900">
+                Visualização do Paciente (Vitrine Pública)
+              </h2>
               <p className="text-xs text-slate-500">
-                {showPatientPreview
-                  ? 'Clique para recolher a pré-visualização'
-                  : 'Clique para expandir e testar o carrossel iniciando pela foto de capa na 1ª posição'}
+                Veja exatamente como o perfil, carrossel de fotos e informações aparecerão no portal
               </p>
             </div>
           </div>
-
-          <span className="text-slate-500">
+          <div className="flex items-center gap-2 text-slate-400">
+            <span className="text-xs font-semibold text-emerald-700">
+              {showPatientPreview ? 'Recolher pré-visualização' : 'Expandir pré-visualização'}
+            </span>
             {showPatientPreview ? (
-              <IconChevronUp className="h-5 w-5" />
+              <IconChevronUp className="h-5 w-5 text-emerald-700" />
             ) : (
               <IconChevronDown className="h-5 w-5" />
             )}
-          </span>
+          </div>
         </button>
 
-        {/* Conteúdo Expandido do Accordion: Carrossel Dinâmico de Fotos */}
         {showPatientPreview && (
-          <div className="border-t border-slate-200 p-6 bg-gradient-to-b from-slate-50/50 to-white space-y-6">
-            {previewPhotos.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center">
-                <IconPhoto className="mx-auto h-10 w-10 text-slate-300 stroke-1" />
-                <p className="mt-2 text-sm font-semibold text-slate-700">
-                  Nenhuma foto cadastrada para exibição
-                </p>
-                <p className="mt-1 text-xs text-slate-500">
-                  Adicione fotos na seção acima para testar o carrossel e o card do paciente.
-                </p>
-              </div>
-            ) : (
-              <div className="mx-auto max-w-xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-md">
-                {/* Visualizador de Carrossel de Fotos (Inicia sempre na Capa = Posição 1 na Pré-visualização) */}
-                <div className="relative aspect-16/10 w-full overflow-hidden bg-slate-950">
-                  {currentPhoto && (
-                    <img
-                      src={currentPhoto.url}
-                      alt={currentPhoto.title}
-                      className="h-full w-full object-cover transition duration-300"
-                    />
-                  )}
+          <div className="border-t border-slate-200 bg-slate-50/60 p-6">
+            <div className="mx-auto max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-md">
+              {/* Carrossel da Vitrine */}
+              {previewPhotos.length > 0 ? (
+                <div className="relative aspect-video w-full overflow-hidden bg-slate-900">
+                  <img
+                    src={currentPhoto?.url}
+                    alt={currentPhoto?.title}
+                    className="h-full w-full object-cover"
+                  />
 
-                  {/* Badges no Carrossel */}
+                  {/* Badge de Categoria */}
                   <div className="absolute top-3 left-3 flex items-center gap-2">
-                    <span className="inline-flex items-center gap-1 rounded-md bg-slate-900/80 px-2.5 py-1 text-xs font-medium text-white backdrop-blur-xs">
+                    <span className="inline-flex items-center gap-1.5 rounded-md bg-slate-900/80 px-2.5 py-1 text-xs font-medium text-white backdrop-blur-xs">
                       <IconBuilding className="h-3.5 w-3.5" />
                       {CLINIC_PHOTO_CATEGORIES.find((c) => c.id === currentPhoto?.category)?.label ||
                         'Ambiente'}
@@ -756,115 +1008,148 @@ function ClinicProfilePage() {
                     </>
                   )}
                 </div>
-
-                {/* Barra de Miniaturas Clicáveis do Carrossel (A 1ª miniatura à esquerda é sempre a Capa na Pré-visualização) */}
-                {previewPhotos.length > 1 && (
-                  <div className="flex gap-2 overflow-x-auto border-b border-slate-100 bg-slate-50 p-3">
-                    {previewPhotos.map((p, idx) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => setCarouselIndex(idx)}
-                        className={`relative h-14 w-18 shrink-0 overflow-hidden rounded-lg border-2 transition ${
-                          idx === carouselIndex
-                            ? 'border-emerald-600 scale-105 shadow-sm ring-2 ring-emerald-500/20'
-                            : 'border-transparent opacity-70 hover:opacity-100'
-                        }`}
-                        title={p.title}
-                      >
-                        <img src={p.url} alt={p.title} className="h-full w-full object-cover" />
-                        <div className="absolute top-0.5 left-0.5 flex items-center gap-0.5">
-                          <span className={`rounded-xs px-1 text-[9px] font-bold text-white ${idx === 0 ? 'bg-emerald-600' : 'bg-slate-900/80'}`}>
-                            #{idx + 1}
-                          </span>
-                          {p.isCover && (
-                            <span className="rounded-xs bg-emerald-600 p-0.5 text-white">
-                              <IconStarFilled className="h-2 w-2" />
-                            </span>
-                          )}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {/* Card de Informações da Clínica Reativo em Tempo Real */}
-                <div className="p-5">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <h3 className="text-lg font-bold text-slate-900">
-                        {liveClinicData.tradeName || 'Nome da Clínica'}
-                      </h3>
-                      <p className="mt-0.5 flex items-center gap-1 text-xs text-slate-500">
-                        <IconMapPin className="h-3.5 w-3.5 text-slate-400" />
-                        {liveClinicData.addressStreet
-                          ? `${liveClinicData.neighborhood || 'Vilas do Atlântico'}, ${liveClinicData.city || 'Lauro de Freitas'}`
-                          : 'Lauro de Freitas, BA'}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1 rounded-md bg-amber-50 px-2 py-1 text-xs font-bold text-amber-800 border border-amber-200">
-                      <IconStar className="h-3.5 w-3.5 text-amber-500 fill-amber-400" />
-                      4.9
-                    </div>
-                  </div>
-
-                  <p className="mt-3 text-xs text-slate-600 leading-relaxed">
-                    {liveClinicData.description ||
-                      'Estrutura moderna e equipada com consultórios, recepção acolhedora e tecnologia para exames e consultas.'}
+              ) : (
+                <div className="flex aspect-video w-full flex-col items-center justify-center bg-slate-100 text-slate-400">
+                  <IconPhoto className="h-12 w-12 stroke-1" />
+                  <p className="mt-2 text-xs font-medium text-slate-500">
+                    Nenhuma foto cadastrada para o carrossel.
                   </p>
+                  <p className="text-[11px] text-slate-400">
+                    Faça o upload na seção acima para visualizar aqui.
+                  </p>
+                </div>
+              )}
 
-                  <div className="mt-4 flex flex-wrap gap-1.5 border-t border-slate-100 pt-3">
-                    {(liveClinicData.amenities || []).map((amenity, idx) => (
-                      <span
-                        key={idx}
-                        className="rounded bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600"
-                      >
-                        {amenity}
-                      </span>
-                    ))}
+              {/* Barra de Miniaturas Clicáveis do Carrossel */}
+              {previewPhotos.length > 1 && (
+                <div className="flex gap-2 overflow-x-auto border-b border-slate-100 bg-slate-50 p-3">
+                  {previewPhotos.map((p, idx) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setCarouselIndex(idx)}
+                      className={`relative h-14 w-18 shrink-0 overflow-hidden rounded-lg border-2 transition ${
+                        idx === carouselIndex
+                          ? 'border-emerald-600 scale-105 shadow-sm ring-2 ring-emerald-500/20'
+                          : 'border-transparent opacity-70 hover:opacity-100'
+                      }`}
+                      title={p.title}
+                    >
+                      <img src={p.url} alt={p.title} className="h-full w-full object-cover" />
+                      <div className="absolute top-0.5 left-0.5 flex items-center gap-0.5">
+                        <span className={`rounded-xs px-1 text-[9px] font-bold text-white ${idx === 0 ? 'bg-emerald-600' : 'bg-slate-900/80'}`}>
+                          #{idx + 1}
+                        </span>
+                        {p.isCover && (
+                          <span className="rounded-xs bg-emerald-600 p-0.5 text-white">
+                            <IconStarFilled className="h-2 w-2" />
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Card de Informações da Clínica Reativo em Tempo Real */}
+              <div className="p-5">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900">
+                      {liveClinicData.tradeName || 'Nome da Clínica'}
+                    </h3>
+                    <p className="mt-0.5 flex items-center gap-1 text-xs text-slate-500">
+                      <IconMapPin className="h-3.5 w-3.5 text-slate-400" />
+                      {liveClinicData.addressStreet
+                        ? `${liveClinicData.neighborhood ? `${liveClinicData.neighborhood}, ` : ''}${liveClinicData.city ? `${liveClinicData.city}${liveClinicData.state ? ` - ${liveClinicData.state}` : ''}` : 'Localização da clínica'}`
+                        : liveClinicData.city
+                          ? `${liveClinicData.city}${liveClinicData.state ? ` - ${liveClinicData.state}` : ''}`
+                          : 'Endereço da clínica'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1 rounded-md bg-amber-50 px-2 py-1 text-xs font-bold text-amber-800 border border-amber-200">
+                    <IconStar className="h-3.5 w-3.5 text-amber-500 fill-amber-400" />
+                    4.9
                   </div>
                 </div>
+
+                <p className="mt-3 text-xs text-slate-600 leading-relaxed">
+                  {liveClinicData.description ||
+                    'Estrutura moderna e equipada com consultórios, recepção acolhedora e tecnologia para exames e consultas.'}
+                </p>
+
+                <div className="mt-4 flex flex-wrap gap-1.5 border-t border-slate-100 pt-3">
+                  {(liveClinicData.amenities || []).map((amenity, idx) => (
+                    <span
+                      key={idx}
+                      className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-800"
+                    >
+                      <IconCheck className="h-3 w-3 text-emerald-600" />
+                      {amenity}
+                    </span>
+                  ))}
+                </div>
+
+                <div className="mt-4 rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
+                  <span className="font-semibold text-slate-800">Horários de atendimento: </span>
+                  {liveClinicData.openingHours || 'Consulte horários'}
+                </div>
               </div>
-            )}
+            </div>
           </div>
         )}
       </section>
 
-      {/* Modal de Zoom */}
+      {/* Modal de Zoom da Foto */}
       {zoomPhoto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-xs"
+          onClick={() => setZoomPhoto(null)}
+        >
           <div
-            className="absolute inset-0 bg-slate-950/80 backdrop-blur-xs"
-            onClick={() => setZoomPhoto(null)}
-          />
-          <div className="relative max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-2xl bg-slate-900 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 px-6 py-3 text-white">
+            className="relative max-h-[90vh] max-w-4xl overflow-hidden rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setZoomPhoto(null)}
+              className="absolute top-3 right-3 z-10 rounded-full bg-slate-900/60 p-2 text-white hover:bg-slate-900 transition"
+              title="Fechar"
+            >
+              <IconClose className="h-5 w-5" />
+            </button>
+            <img
+              src={zoomPhoto.url}
+              alt={zoomPhoto.title}
+              className="max-h-[75vh] w-full object-contain bg-slate-950"
+            />
+            <div className="p-4 bg-white border-t border-slate-100 flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-bold">{zoomPhoto.title}</h3>
-                <span className="text-[11px] text-emerald-400">
+                <p className="text-sm font-bold text-slate-900">{zoomPhoto.title}</p>
+                <p className="text-xs text-slate-500">
                   {CLINIC_PHOTO_CATEGORIES.find((c) => c.id === zoomPhoto.category)?.label}
-                </span>
+                </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setZoomPhoto(null)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
-              >
-                <IconClose className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="max-h-[70vh] w-full overflow-hidden bg-black">
-              <img
-                src={zoomPhoto.url}
-                alt={zoomPhoto.title}
-                className="h-full w-full object-contain"
-              />
+              {zoomPhoto.isCover && (
+                <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-800 border border-emerald-200">
+                  <IconStarFilled className="h-3.5 w-3.5 text-emerald-600" />
+                  Foto de Capa
+                </span>
+              )}
             </div>
           </div>
         </div>
       )}
 
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   )
 }

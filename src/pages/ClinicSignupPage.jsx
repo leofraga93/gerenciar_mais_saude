@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import brandLogo from '../assets/logo-500-sem-fundo.png'
 import { registerClinic } from '../services/clinicService'
@@ -15,21 +15,25 @@ const STEPS = [
     id: 1,
     title: 'Dados da empresa',
     description: 'Identificação jurídica da clínica na plataforma.',
+    firstField: 'tradeName',
   },
   {
     id: 2,
     title: 'Acesso ao portal',
     description: 'E-mail e senha que serão usados no login administrativo.',
+    firstField: 'email',
   },
   {
     id: 3,
     title: 'Responsável e contato',
     description: 'Quem a plataforma contata sobre credenciamento e operação.',
+    firstField: 'managerName',
   },
   {
     id: 4,
     title: 'Termos e confirmação',
     description: 'Revise e aceite para concluir o credenciamento.',
+    firstField: 'acceptTerms',
   },
 ]
 
@@ -130,6 +134,7 @@ function PasswordInput({
       />
       <button
         type="button"
+        tabIndex={-1}
         onPointerDown={revealPassword}
         onPointerUp={hidePassword}
         onPointerLeave={hidePassword}
@@ -163,7 +168,8 @@ function Field({ label, htmlFor, required, error, hint, children }) {
 
 /**
  * Tela /cadastro-clinica — wizard de credenciamento (checklist §2.1).
- * Cada passo valida todos os campos obrigatórios antes de avançar.
+ * Cada passo valida todos os campos obrigatórios antes de avançar e
+ * gerencia o foco automático no primeiro campo da etapa para navegação rápida via teclado e tabulação.
  */
 function ClinicSignupPage() {
   const navigate = useNavigate()
@@ -175,6 +181,19 @@ function ClinicSignupPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const currentStepMeta = STEPS[step - 1]
+
+  // Foca automaticamente no primeiro campo da etapa quando o step muda ou a página carrega
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!formRef.current) return
+      const targetFieldName = currentStepMeta.firstField
+      const targetEl =
+        formRef.current.querySelector(`[name="${targetFieldName}"]`) ||
+        formRef.current.querySelector('input:not([type="hidden"]), select, textarea, button')
+      targetEl?.focus()
+    }, 50)
+    return () => clearTimeout(timer)
+  }, [step, currentStepMeta.firstField])
 
   const focusFirstInvalidField = (stepErrors) => {
     const firstField = Object.keys(stepErrors)[0]
@@ -247,6 +266,27 @@ function ClinicSignupPage() {
     setStep((s) => Math.max(s - 1, 1))
   }
 
+  const goToStepDirectly = (targetStep) => {
+    if (targetStep === step) return
+    if (targetStep < step) {
+      setErrors({})
+      setStepError('')
+      setStep(targetStep)
+      return
+    }
+    // Para avançar diretamente, valida o passo atual
+    const stepErrors = validateClinicSignup(form, step)
+    if (Object.keys(stepErrors).length > 0) {
+      setErrors(stepErrors)
+      setStepError('Corrija os campos antes de avançar.')
+      focusFirstInvalidField(stepErrors)
+      return
+    }
+    setErrors({})
+    setStepError('')
+    setStep(targetStep)
+  }
+
   const handleSubmit = async (event) => {
     event.preventDefault()
     const allErrors = validateClinicSignup(form, null)
@@ -310,17 +350,22 @@ function ClinicSignupPage() {
               const isActive = item.id === step
               const isDone = item.id < step
               return (
-                <li
-                  key={item.id}
-                  className={`rounded-lg border px-3 py-2 text-xs sm:text-sm ${
-                    isActive
-                      ? 'border-emerald-600 bg-emerald-50 text-emerald-900'
-                      : isDone
-                        ? 'border-emerald-200 bg-white text-emerald-800'
-                        : 'border-slate-200 bg-white text-slate-500'
-                  }`}
-                >
-                  <span className="font-semibold">{item.id}. {item.title}</span>
+                <li key={item.id}>
+                  <button
+                    type="button"
+                    onClick={() => goToStepDirectly(item.id)}
+                    tabIndex={isDone || isActive ? 0 : -1}
+                    aria-current={isActive ? 'step' : undefined}
+                    className={`w-full text-left rounded-lg border px-3 py-2 text-xs sm:text-sm transition cursor-pointer outline-none focus:ring-2 focus:ring-emerald-500 ${
+                      isActive
+                        ? 'border-emerald-600 bg-emerald-50 text-emerald-900 font-bold shadow-2xs'
+                        : isDone
+                          ? 'border-emerald-200 bg-white text-emerald-800 hover:bg-emerald-50/50'
+                          : 'border-slate-200 bg-white text-slate-400 hover:text-slate-600'
+                    }`}
+                  >
+                    <span className="font-semibold">{item.id}. {item.title}</span>
+                  </button>
                 </li>
               )
             })}
