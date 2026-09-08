@@ -12,16 +12,16 @@ jobs:
     - name: Baixar código do projeto
     uses: actions/checkout@v4
     
-    -name: Configurar Node.js
+    - name: Configurar Node.js
     uses: actions/setup-node@v4
     with:
       node-version: 20
     
-    -name: Instalar dependências
+    - name: Instalar dependências
     run: npm ci
 
-    -name: Executar testes
+    - name: Executar testes
     run: npm run lint
 
-    -name: Executar build
+    - name: Executar build
     run: npm run build
