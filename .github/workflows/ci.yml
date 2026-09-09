@@ -8,6 +8,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     
+    #Passos devem seguir identação perfeita e o traço com espaço para indicar a lista de itens
     steps:
     - name: Baixar código do projeto
       uses: actions/checkout@v4

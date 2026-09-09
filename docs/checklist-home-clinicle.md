@@ -4,9 +4,9 @@ Base de comparação: `docs/.cursorrulesIndexHomeClinicle` e fluxo de negócio B
 
 **Escopo desta fase:** front-end visual + mock data. **Fora de escopo agora:** banco de dados, `fetch`/`axios` real, persistência de token. **Preparar desde já:** contratos de dados, `src/data/*.js`, `src/services/*.js`, hooks compatíveis com TanStack Query.
 
-**Última revisão:** §4.4 CRUD Meus Serviços + suporte a fotos de procedimentos + catálogo mestre (25 exames/consultas de Lauro de Freitas); §4.6 Perfil da Clínica com Vitrine e Galeria de Fotos (estilo TotalPass).
+**Última revisão:** §4.2 Agenda Operacional + §4.3 Máquina de Estados + §4.5 Financeiro PIX + §4.1 Dashboard com métricas + Filtro de Nicho em §4.4 Meus Serviços.
 
-**Fase atual:** Catálogo de Serviços (§4.4) e Perfil Visual (§4.6) concluídos. **Próxima entrega:** Agenda Operacional (§4.2) + Máquina de Estados de Agendamento (§4.3) → Financeiro com PIX (§4.5).
+**Fase atual:** Agenda (§4.2), Máquina de Estados (§4.3), Dashboard com métricas (§4.1) e Financeiro PIX (§4.5) concluídos. **Próxima entrega:** Proteção de rotas mock (§3.5) + Perfil read-only do paciente (§6).
 
 ---
 
@@ -14,19 +14,18 @@ Base de comparação: `docs/.cursorrulesIndexHomeClinicle` e fluxo de negócio B
 
 ```text
 Landing (/) → Credenciamento (/cadastro-clinica) → Login clínica (mock) → Portal (/dashboard/*)
-         [x]                              [x]                    [mock]              [x shell]
+         [x]                              [x]                    [x]                 [x]
                                                       ↓
-                              Perfil [x] + Serviços [x] + Agenda [próximo] + Financeiro [próximo]
+                               Perfil [x] + Serviços [x] + Agenda [x] + Financeiro [x]
 ```
 
 | Etapa | Objetivo | Status |
 |--------|----------|--------|
-| Credenciamento | Criar conta da empresa (dados mínimos + acesso). | **Concluído** (mock) |
 | Login | Entrar no portal administrativo (`ROLE_CLINICA`). | **Mock** (landing; sem vínculo com senha cadastrada) |
 | **Fundação do portal** | Shell, rotas aninhadas, top bar, sidebar responsiva. | **Concluído** (§3.1) |
 | **Catálogo / oferta** | Clínica publica exames e consultas (B2B2C + fotos). | **Concluído** (§3.2 + §4.4) |
 | **Perfil & Vitrine** | Fotos da clínica estilo TotalPass + dados cadastrais. | **Concluído** (§4.6) |
-| Operação | Agenda, métricas, máquina de estados. | **Próximo** (§4.1–4.3) |
+| Operação | Agenda, métricas, máquina de estados. | **Concluído** (§4.1–4.3) |
 
 ---
 
@@ -129,7 +128,7 @@ Antes da UI de serviços, definir contratos estáveis para a futura API (mesma f
 - [x] **`src/data/insurances.js`** — lista mestre (Bradesco, Unimed, Cassi, etc.) com `id` + `name`.
 - [x] **`src/constants/catalogConstants.js`** — categorias (Laboratório, Imagem, Cardiologia, Consulta, Outros) + `SERVICE_FIELD_KEYS`.
 - [x] **`src/data/clinicProfileData.js`** — perfil estendido (dados cadastrais, galeria de fotos, horários de funcionamento).
-- [ ] **`src/data/appointments.js`** — agendamentos mock (para dashboard/agenda).
+- [x] **`src/data/appointments.js`** — agendamentos mock (5 registros cobrindo todos os 4 estados, datas, convênios, instruções de preparo).
 - [x] Contrato tipado/documentado: `Service`, `Insurance`, `ClinicProfile`.
 - [x] **`useServices` hook** em `src/hooks/useServices.js`:
 - [x] Estrutura compatível com TanStack Query (`queryKey`, `queryFn`, mutations com optimistic update e invalidação de cache).
@@ -144,15 +143,15 @@ Antes da UI de serviços, definir contratos estáveis para a futura API (mesma f
 - [x] `ClinicActionBanner.jsx` (banner padronizado de ação recomendada, onboarding e alertas da clínica).
 - [x] `ServiceCard.jsx` e `ServiceFormModal.jsx` (cards do catálogo e modal completo de cadastro/edição com upload de foto).
 - [x] `ClinicScheduleEditor.jsx` (editor alinhado de dias e horários de funcionamento).
-- [ ] `StatCard.jsx` (métricas da home).
-- [ ] `StatusBadge.jsx` (estados de agendamento).
+- [x] `StatCard.jsx` (métricas da home — 5 paletas de cor, ícone injetável, reutilizável em Dashboard e Financeiro).
+- [x] `StatusBadge.jsx` (estados de agendamento — ponto colorido + label, consome `APPOINTMENT_STATUS_CONFIG` diretamente).
 - [x] Componentes reutilizáveis de formulário e feedback (`FormField.jsx`, `Toast.jsx`, `Icons.jsx`).
 
 ### 3.4 Ganchos para API (sem integração real)
 
 - [x] `registerClinic()`, `getRegisteredClinic()`, `clearRegisteredClinic()` em `clinicService.js`.
 - [x] `getClinicProfile()`, `updateClinicProfile()`, `getServices()`, `saveService()`, `deleteService()` (mock via Promise + sessionStorage).
-- [ ] `getAppointments()` (mock via Promise para agenda e dashboard).
+- [x] `getAppointments()`, `updateAppointmentStatus()`, `deleteAppointment()` em `appointmentService.js` (mock via Promise + localStorage).
 - [x] Dependência `@tanstack/react-query` + provider em `main.jsx`.
 - [ ] Contexto opcional `ClinicSessionContext` (`ROLE_CLINICA` mock).
 
@@ -165,36 +164,43 @@ Antes da UI de serviços, definir contratos estáveis para a futura API (mesma f
 
 ## 4) Operação — Portal da clínica (gestão, catálogo e perfil)
 
-### 4.1 Dashboard — visão geral (`/dashboard`)
+### 4.1 Dashboard — visão geral (`/dashboard`) — CONCLUÍDO
 
-- [ ] Cards de métricas: agendamentos do dia, solicitações pendentes, receita estimada.
-- [ ] Lista de agendamentos recentes: Nome do Paciente, Exame, Horário Sugerido, Status.
-- [ ] Dados de `src/data/appointments.js` via hook.
+- [x] Cards de métricas: agendamentos do dia, solicitações pendentes, confirmados+pagos e receita estimada (`StatCard.jsx` × 4).
+- [x] Lista dos 5 agendamentos mais recentes: Nome do Paciente, Exame, Data/Hora e `StatusBadge`.
+- [x] Dados de `src/data/appointments.js` via `useAppointments` hook (TanStack Query).
+- [x] Atalhos rápidos para Agenda, Meus Serviços e Financeiro.
 
-### 4.2 Agenda (`/dashboard/agenda`)
+### 4.2 Agenda (`/dashboard/agenda`) — CONCLUÍDO
 
-- [ ] Listagem completa (tabela ou cards).
-- [ ] Filtros mock (status, data).
-- [ ] Ações mock: confirmar, recusar, avançar status.
+- [x] Listagem completa em cards responsivos (paciente, exame, data/hora, convênio, valor).
+- [x] Filtros mock por status (pills com contagem) e por data (input date).
+- [x] Cards expansíveis com instruções de preparo, observações e método de pagamento.
+- [x] Ações mock: confirmar, recusar, registrar pagamento — condicionadas ao estado atual.
+- [x] Barra de resumo (total, hoje, pendentes, pagos) no topo da tela.
+- [x] Estado vazio com mensagem e botão de limpar filtros.
 
-### 4.3 Máquina de estados visual (agendamentos)
+### 4.3 Máquina de estados visual (agendamentos) — CONCLUÍDO
 
 | Status | Cor | Item |
 |--------|-----|------|
-| `SOLICITADO` | Azul (`blue-500`) | [ ] |
-| `CONFIRMADO_CLINICA` | Amarelo (`yellow-500`) | [ ] |
-| `PAGO` | Verde (`green-600`) | [ ] |
-| `CANCELADO` | Vermelho (`red-500`) | [ ] |
+| `SOLICITADO` | Azul (`blue-500`) | [x] |
+| `CONFIRMADO_CLINICA` | Amarelo (`amber-500`) | [x] |
+| `PAGO` | Verde (`emerald-600`) | [x] |
+| `CANCELADO` | Vermelho (`red-500`) | [x] |
 
-- [ ] Botão **Confirmar agendamento** só quando status = `SOLICITADO`.
-- [ ] Botão **Registrar pagamento** só após `CONFIRMADO_CLINICA`.
-- [ ] Feedback visual ao mudar status (badge, transição, toast).
+- [x] Botão **Confirmar agendamento** só quando status = `SOLICITADO`.
+- [x] Botão **Registrar pagamento** só após `CONFIRMADO_CLINICA` (estados `PAGO` e `CANCELADO` são terminais — sem ações).
+- [x] Feedback visual ao mudar status (badge, transição, `Toast.jsx`).
+- [x] Lógica de transições em `getAvailableActions(status)` — função pura separada da UI.
+- [x] Legenda do fluxo de estados exibida na própria tela de Agenda.
+- [x] `useAppointments.js` + `useUpdateAppointmentStatus` (TanStack Query, optimistic invalidation).
 
 ---
 
 ### 4.4 Meus Serviços (`/dashboard/servicos`) — vitrine B2B2C — CONCLUÍDO
 
-Tela onde a clínica **oferta** exames e consultas para pacientes no app com catálogo completo e suporte a fotos de procedimentos.
+Tela onde a clínica **oferta** exames e consultas para pacientes no app com catálogo completo, suporte a fotos de procedimentos e **filtro de nicho por categoria**.
 
 #### 4.4.1 Visualização (lista / cards)
 
@@ -204,6 +210,7 @@ Tela onde a clínica **oferta** exames e consultas para pacientes no app com cat
 - [x] Botão **Novo serviço** abrindo modal/formulário com foco automático.
 - [x] Dados via `useServices` integrado a `@tanstack/react-query` (mock → API futura).
 - [x] Banner padronizado de boas-vindas pós-credenciamento e alerta inteligente de fotos pendentes (`ClinicActionBanner.jsx`).
+- [x] **Filtro de nicho por categoria** (`FilterButtonGroup` reutilizado da landing page, sem retrabalho) com contagem por nicho e estado vazio por categoria.
 
 #### 4.4.2 Cadastro e edição (modal / formulário)
 
@@ -236,10 +243,13 @@ Tela onde a clínica **oferta** exames e consultas para pacientes no app com cat
 
 ---
 
-### 4.5 Financeiro (`/dashboard/financeiro`)
+### 4.5 Financeiro (`/dashboard/financeiro`) — CONCLUÍDO
 
-- [ ] Resumo mock: receita estimada, histórico simplificado, destaque PIX.
-- [ ] Sem integração bancária real nesta fase.
+- [x] 3 `StatCard`: Receita Realizada, Receita Prevista (confirmados) e Ticket Médio.
+- [x] Bloco de destaque PIX: chave mock + botão **Copiar Chave** com feedback visual (ícone de check + toast).
+- [x] Histórico de Pagamentos Confirmados: tabela filtrada por `status === PAGO`, com totalizador.
+- [x] Dados derivados de `useAppointments` — sem nova fonte de dados.
+- [x] Sem integração bancária real nesta fase (conforme especificado).
 
 ### 4.6 Perfil da clínica & Vitrine de Fotos (`/dashboard/perfil`) — CONCLUÍDO
 
@@ -261,9 +271,9 @@ Manutenção cadastral completa e vitrine visual estilo TotalPass / Google Meu N
 
 | Dado | Origem | Onde exibir | Status |
 |------|--------|-------------|--------|
-| Agendamentos | Plataforma / pacientes | Dashboard, Agenda | [ ] |
-| Métricas derivadas | Cálculo sobre agendamentos mock | Cards da home | [ ] |
-| Histórico confirmações / pagamentos | Máquina de estados | Agenda + Financeiro | [ ] |
+| Agendamentos | `appointments.js` mock | Dashboard, Agenda | [x] |
+| Métricas derivadas | Cálculo sobre agendamentos mock | Cards da home | [x] |
+| Histórico confirmações / pagamentos | Máquina de estados | Agenda + Financeiro | [x] |
 | Catálogo publicado | Clínica em Meus Serviços | App paciente (futuro) | [x] |
 
 ---
@@ -317,7 +327,7 @@ Manutenção cadastral completa e vitrine visual estilo TotalPass / Google Meu N
 - [x] Clínica **cadastra serviço** com valor particular, upload de foto e multi-select de convênios.
 - [x] Clínica **edita / inativa / remove** serviço no mock.
 - [x] Clínica **edita perfil** completo com galeria de fotos, foto de capa e horários (§4.6).
-- [ ] Clínica vê **agenda** com máquina de estados coerente (§4.2 e §4.3).
+- [x] Clínica vê **agenda** com máquina de estados coerente (§4.2 e §4.3).
 - [ ] Paciente não acessa `/dashboard/*` (guard mock).
 
 ---
@@ -329,15 +339,19 @@ Manutenção cadastral completa e vitrine visual estilo TotalPass / Google Meu N
 | Landing + rotas base + modal por perfil | **Concluído** |
 | Credenciamento `/cadastro-clinica` | **Concluído** |
 | Paciente: boas-vindas + app | **Concluído** (perfil pendente) |
-| Dashboard + ClinicShell | **Concluído** (§3.1; métricas operacionais pendentes) |
+| Dashboard + ClinicShell | **Concluído** (§3.1 + §4.1 métricas operacionais) |
 | **Fundação portal (§3.1)** | **Concluído** |
 | **Mocks serviços/convênios/perfil (§3.2)** | **Concluído** (`services.js`, `insurances.js`, `clinicProfileData.js`, `catalogConstants.js`) |
-| **Meus Serviços (§4.4)** | **Concluído** (CRUD completo + fotos + convênios) |
+| **Mocks agendamentos (§3.2)** | **Concluído** (`appointments.js` — 5 registros, 4 estados, `appointmentService.js`) |
+| **Meus Serviços (§4.4)** | **Concluído** (CRUD + fotos + convênios + filtro de nicho) |
 | **Perfil & Vitrine de Fotos (§4.6)** | **Concluído** (Galeria, capa, card preview, horários) |
 | **Banners de Ação Recomendada** | **Concluído** (`ClinicActionBanner.jsx` unificado) |
-| Agenda + métricas + máquina de estados | **Próximo** (§4.1, §4.2, §4.3) |
-| Financeiro PIX (§4.5) | **A seguir** |
-| TanStack Query / hooks | **Concluído** (`useServices`, `clinicService.js`) |
+| **Dashboard com métricas (§4.1)** | **Concluído** (StatCard × 4 + tabela recentes + atalhos) |
+| **Agenda + Máquina de Estados (§4.2–4.3)** | **Concluído** (filtros, transições, estados terminais, legenda) |
+| **Financeiro PIX (§4.5)** | **Concluído** (StatCards, bloco PIX, histórico de pagamentos) |
+| TanStack Query / hooks | **Concluído** (`useServices`, `useAppointments`, `clinicService.js`) |
+| Proteção de rotas mock (§3.5) | **Pendente** |
+| Perfil read-only paciente (§6) | **Pendente** |
 | API e banco | **Fora da fase atual** |
 
 ### Ordem de implementação recomendada
@@ -345,10 +359,12 @@ Manutenção cadastral completa e vitrine visual estilo TotalPass / Google Meu N
 ```text
 1. ~~ClinicShell + rotas aninhadas + logout~~ ✓
 2. ~~src/data/services.js + useServices (mock)~~ ✓
-3. ~~Meus Serviços (/dashboard/servicos) + fotos + multi-select convênios~~ ✓
+3. ~~Meus Serviços (/dashboard/servicos) + fotos + multi-select convênios + filtro nicho~~ ✓
 4. ~~Perfil da Clínica (/dashboard/perfil) + galeria de fotos + vitrine TotalPass~~ ✓
-5. /dashboard (métricas) + /dashboard/agenda (máquina de estados) ← próximo
-6. /dashboard/financeiro (resumo PIX)
+5. ~~Dashboard (métricas) + Agenda (máquina de estados)~~ ✓
+6. ~~Financeiro PIX (resumo + histórico)~~ ✓
+7. Proteção de rotas mock (§3.5) ← próximo
+8. Perfil read-only do paciente (§6)
 ```
 
 ---

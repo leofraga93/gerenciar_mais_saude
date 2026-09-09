@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import ServiceCard from '../../components/clinic/ServiceCard'
 import ServiceFormModal from '../../components/clinic/ServiceFormModal'
 import Toast from '../../components/common/Toast'
 import ClinicActionBanner from '../../components/clinic/ClinicActionBanner'
+import { FilterButtonGroup } from '../../components/catalog/FilterButtonGroup'
 import { getClinicProfile } from '../../services/clinicService'
+import { SERVICE_CATEGORIES } from '../../constants/catalogConstants'
 import {
   IconCamera,
   IconPlus,
@@ -30,6 +32,7 @@ function ClinicServicesPage() {
   const [editingService, setEditingService] = useState(null)
   const [toast, setToast] = useState(null)
   const [photosCount, setPhotosCount] = useState(null)
+  const [selectedCategory, setSelectedCategory] = useState('all')
 
   useEffect(() => {
     getClinicProfile()
@@ -71,6 +74,22 @@ function ClinicServicesPage() {
     await toggleMutation.mutateAsync(service.id)
     showToast(service.active ? 'Serviço inativado.' : 'Serviço ativado no catálogo.')
   }
+
+  // Opções para o filtro de categoria (com contagem por nicho)
+  const categoryOptions = useMemo(() => {
+    const all = { id: 'all', label: 'Todos os nichos' }
+    const withCounts = SERVICE_CATEGORIES.map((cat) => ({
+      ...cat,
+      count: services.filter((s) => s.category === cat.id).length,
+    }))
+    return [all, ...withCounts]
+  }, [services])
+
+  // Serviços filtrados pela categoria selecionada
+  const filteredServices = useMemo(() => {
+    if (selectedCategory === 'all') return services
+    return services.filter((s) => s.category === selectedCategory)
+  }, [services, selectedCategory])
 
   const activeCount = services.filter((s) => s.active).length
 
@@ -134,6 +153,21 @@ function ClinicServicesPage() {
         <span className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-emerald-800">
           Ativos no Catálogo: <strong>{activeCount}</strong>
         </span>
+        {selectedCategory !== 'all' && (
+          <span className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 text-violet-800">
+            Exibindo: <strong>{filteredServices.length}</strong> no filtro atual
+          </span>
+        )}
+      </div>
+
+      {/* Filtro por Nicho de Serviço */}
+      <div className="rounded-xl border border-slate-200 bg-white px-4 py-3.5">
+        <FilterButtonGroup
+          label="Filtrar por Nicho de Serviço:"
+          options={categoryOptions}
+          selectedValue={selectedCategory}
+          onChange={setSelectedCategory}
+        />
       </div>
 
       {isLoading ? (
@@ -158,18 +192,31 @@ function ClinicServicesPage() {
       ) : null}
 
       {!isLoading && !isError && services.length > 0 ? (
-        <div className="grid gap-4 lg:grid-cols-2">
-          {services.map((service) => (
-            <ServiceCard
-              key={service.id}
-              service={service}
-              onEdit={openEdit}
-              onDelete={handleDelete}
-              onToggleStatus={handleToggleStatus}
-              isDeleting={deleteMutation.isPending}
-            />
-          ))}
-        </div>
+        filteredServices.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
+            <p className="text-slate-500 text-sm">Nenhum serviço encontrado para este nicho.</p>
+            <button
+              type="button"
+              onClick={() => setSelectedCategory('all')}
+              className="mt-3 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700 transition"
+            >
+              Ver todos os serviços
+            </button>
+          </div>
+        ) : (
+          <div className="grid gap-4 lg:grid-cols-2">
+            {filteredServices.map((service) => (
+              <ServiceCard
+                key={service.id}
+                service={service}
+                onEdit={openEdit}
+                onDelete={handleDelete}
+                onToggleStatus={handleToggleStatus}
+                isDeleting={deleteMutation.isPending}
+              />
+            ))}
+          </div>
+        )
       ) : null}
 
       <ServiceFormModal
