@@ -18,6 +18,13 @@ jobs:
       with:
         node-version: 20
     
+    - name: Gerar package-lock.json se não existir
+      run: |
+        if [ ! -f package-lock.json ]; then
+          echo "package-lock.json não encontrado. Gerando..."
+          npm install
+        fi
+    
     - name: Instalar dependências
       run: npm ci
 
