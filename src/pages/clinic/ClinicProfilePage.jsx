@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   CLINIC_PHOTO_CATEGORIES,
   DEFAULT_CLINIC_PROFILE,
@@ -9,7 +9,8 @@ import {
   getClinicProfile,
   saveClinicProfile,
 } from '../../services/clinicService'
-import FormField, { inputClassName } from '../../components/common/FormField'
+import FormField from '../../components/common/FormField'
+import { inputClassName } from '../../utils/formUtils'
 import Toast from '../../components/common/Toast'
 import ClinicActionBanner from '../../components/clinic/ClinicActionBanner'
 import { ClinicScheduleEditor } from '../../components/clinic/ClinicScheduleEditor'
@@ -56,7 +57,7 @@ function ClinicProfilePage() {
 
   const showToast = (message, type = 'success') => setToast({ message, type })
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const data = await getClinicProfile()
       // Garante que haja operatingDays configurado
@@ -76,11 +77,11 @@ function ClinicProfilePage() {
     } catch {
       showToast('Erro ao carregar perfil da clínica.', 'error')
     }
-  }
+  }, [])
 
   useEffect(() => {
     loadData()
-  }, [])
+  }, [loadData])
 
   // Processa múltiplas imagens (Drop ou Input)
   const processFiles = (files) => {

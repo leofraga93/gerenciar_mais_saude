@@ -8,7 +8,8 @@ import {
   validateServiceField,
   validateServiceForm,
 } from '../../utils/serviceValidation'
-import FormField, { inputClassName } from '../common/FormField'
+import FormField from '../common/FormField'
+import { inputClassName } from '../../utils/formUtils'
 import {
   IconCamera,
   IconClose,
