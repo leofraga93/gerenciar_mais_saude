@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import brandLogo from '../assets/logo-500-sem-fundo.png'
+import ClinicSignupStepper from '../components/clinic/ClinicSignupStepper'
+import PasswordInput from '../components/common/PasswordInput'
 import { registerClinic } from '../services/clinicService'
 import {
   digitsOnly,
@@ -56,96 +58,6 @@ function inputClassName(hasError, withToggle = false) {
   return hasError
     ? `${base} border-red-400 focus:border-red-500 focus:ring-red-100`
     : `${base} border-slate-300 focus:border-emerald-500 focus:ring-emerald-200`
-}
-
-function EyeIcon() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="h-5 w-5"
-      aria-hidden
-    >
-      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  )
-}
-
-function EyeOffIcon() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="h-5 w-5"
-      aria-hidden
-    >
-      <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
-      <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
-      <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
-      <line x1="2" x2="22" y1="2" y2="22" />
-    </svg>
-  )
-}
-
-function PasswordInput({
-  id,
-  name,
-  value,
-  onChange,
-  onBlur,
-  hasError,
-  autoComplete,
-}) {
-  const [isVisible, setIsVisible] = useState(false)
-
-  const revealPassword = (event) => {
-    event.preventDefault()
-    setIsVisible(true)
-  }
-
-  const hidePassword = () => {
-    setIsVisible(false)
-  }
-
-  return (
-    <div className="relative">
-      <input
-        id={id}
-        name={name}
-        type={isVisible ? 'text' : 'password'}
-        autoComplete={autoComplete}
-        value={value}
-        onChange={onChange}
-        onBlur={onBlur}
-        aria-invalid={hasError}
-        aria-describedby={hasError ? `${id}-error` : undefined}
-        className={inputClassName(hasError, true)}
-      />
-      <button
-        type="button"
-        tabIndex={-1}
-        onPointerDown={revealPassword}
-        onPointerUp={hidePassword}
-        onPointerLeave={hidePassword}
-        onPointerCancel={hidePassword}
-        aria-label="Segure para mostrar a senha"
-        className="absolute right-2 top-1/2 -translate-y-1/2 touch-none select-none rounded-md p-1 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
-      >
-        {isVisible ? <EyeOffIcon /> : <EyeIcon />}
-      </button>
-    </div>
-  )
 }
 
 function Field({ label, htmlFor, required, error, hint, children }) {
@@ -344,33 +256,9 @@ function ClinicSignupPage() {
       </header>
 
       <div className="mx-auto max-w-3xl px-6 py-8">
-        <nav aria-label="Progresso do credenciamento" className="mb-8">
-          <ol className="grid gap-2 sm:grid-cols-4">
-            {STEPS.map((item) => {
-              const isActive = item.id === step
-              const isDone = item.id < step
-              return (
-                <li key={item.id}>
-                  <button
-                    type="button"
-                    onClick={() => goToStepDirectly(item.id)}
-                    tabIndex={isDone || isActive ? 0 : -1}
-                    aria-current={isActive ? 'step' : undefined}
-                    className={`w-full text-left rounded-lg border px-3 py-2 text-xs sm:text-sm transition cursor-pointer outline-none focus:ring-2 focus:ring-emerald-500 ${
-                      isActive
-                        ? 'border-emerald-600 bg-emerald-50 text-emerald-900 font-bold shadow-2xs'
-                        : isDone
-                          ? 'border-emerald-200 bg-white text-emerald-800 hover:bg-emerald-50/50'
-                          : 'border-slate-200 bg-white text-slate-400 hover:text-slate-600'
-                    }`}
-                  >
-                    <span className="font-semibold">{item.id}. {item.title}</span>
-                  </button>
-                </li>
-              )
-            })}
-          </ol>
-        </nav>
+        <div className="mb-8">
+          <ClinicSignupStepper currentStep={step} onSelectStep={goToStepDirectly} />
+        </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
           <h1 className="text-2xl font-bold text-slate-900">{currentStepMeta.title}</h1>

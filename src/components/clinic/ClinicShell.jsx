@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Outlet, useNavigate } from 'react-router-dom'
 import brandLogo from '../../assets/logo-500-sem-fundo.png'
 import { clearRegisteredClinic, getRegisteredClinic } from '../../services/clinicService'
+import { PATIENT_STORAGE_KEY } from '../../services/patientService'
 import ClinicTopBar from './ClinicTopBar'
 import Sidebar from './Sidebar'
 
@@ -13,6 +14,18 @@ function ClinicShell() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const clinic = getRegisteredClinic()
   const clinicName = clinic?.tradeName ?? 'Sua clínica'
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const patientSession = window.sessionStorage.getItem(PATIENT_STORAGE_KEY)
+      if (patientSession && !clinic) {
+        navigate('/paciente/inicio', {
+          replace: true,
+          state: { alert: 'Acesso restrito. Sua conta tem perfil de paciente.' },
+        })
+      }
+    }
+  }, [clinic, navigate])
 
   const handleLogout = () => {
     clearRegisteredClinic()

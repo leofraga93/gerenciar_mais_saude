@@ -22,6 +22,7 @@ export default function ClinicActionBanner({
   actionTo = '',
   onAction = null,
   actionIcon: CustomActionIcon,
+  actions = null,
 }) {
   const isSuccess = type === 'success'
 
@@ -80,7 +81,11 @@ export default function ClinicActionBanner({
           </div>
         </div>
 
-        {actionLabel && (
+        {actions ? (
+          <div className="flex flex-wrap items-center gap-2.5 sm:shrink-0">
+            {actions}
+          </div>
+        ) : actionLabel ? (
           <div>
             {actionTo ? (
               <Link to={actionTo} className={buttonClass}>
@@ -94,7 +99,7 @@ export default function ClinicActionBanner({
               </button>
             ) : null}
           </div>
-        )}
+        ) : null}
       </div>
     </section>
   )

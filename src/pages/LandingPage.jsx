@@ -41,6 +41,7 @@ import { SERVICE_CATEGORIES } from '../constants/catalogConstants'
 import { INSURANCES, getInsuranceNames } from '../data/insurances'
 import { formatCurrencyBRL } from '../utils/serviceValidation'
 import { CatalogFilters } from '../components/catalog/CatalogFilters'
+import { TestimonialsCarousel } from '../components/landing/TestimonialsCarousel'
 
 /** Mock até API: perfil escolhido no modal define o destino (ROLE_CLINICA vs ROLE_USUARIO). */
 function LandingPage() {
@@ -72,19 +73,6 @@ function LandingPage() {
     { label: 'Pacientes satisfeitos', value: '4.8/5' },
   ]
 
-  const testimonials = [
-    {
-      quote:
-        'Conseguimos comparar opções com clareza e fechar meu atendimento com ótimo custo-benefício.',
-      author: 'Camila, paciente',
-    },
-    {
-      quote:
-        'A plataforma trouxe novos pacientes para nossa clínica e melhorou nossa visibilidade local.',
-      author: 'Dr. Renato, gestor clínico',
-    },
-  ]
-
   const openAccessModal = (audience) => {
     setActiveAudience(audience)
     setIsAccessModalOpen(true)
@@ -103,6 +91,11 @@ function LandingPage() {
   const handleGoToClinicSignup = () => {
     setIsAccessModalOpen(false)
     navigate('/cadastro-clinica')
+  }
+
+  const handleGoToPatientSignup = () => {
+    setIsAccessModalOpen(false)
+    navigate('/cadastro-paciente')
   }
 
   // Mudança de categoria reseta a paginação para 9
@@ -777,23 +770,8 @@ function LandingPage() {
           )}
         </section>
 
-        {/* Seção de Depoimentos */}
-        <section id="depoimentos" className="space-y-6">
-          <h2 className="text-2xl font-semibold">Depoimentos</h2>
-          <div className="grid gap-4 md:grid-cols-2">
-            {testimonials.map((testimonial) => (
-              <blockquote
-                key={testimonial.author}
-                className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
-              >
-                <p className="text-slate-700">"{testimonial.quote}"</p>
-                <footer className="mt-4 text-sm font-medium text-slate-500">
-                  {testimonial.author}
-                </footer>
-              </blockquote>
-            ))}
-          </div>
-        </section>
+        {/* Seção de Depoimentos Profissionais em Carrossel */}
+        <TestimonialsCarousel />
 
         {/* Container Verde de Chamada Final */}
         <section className="rounded-2xl bg-emerald-600 px-6 py-8 text-center text-white">
@@ -1148,9 +1126,16 @@ function LandingPage() {
                   Boas-vindas ao acesso do paciente
                 </p>
                 <p className="mt-1 text-sm text-emerald-800">
-                  Você pode acompanhar seu perfil no web. Para agendamento completo,
+                  Você pode criar sua conta e acompanhar seu perfil na web. Para agendamento completo,
                   continue sua jornada no aplicativo.
                 </p>
+                <button
+                  type="button"
+                  onClick={handleGoToPatientSignup}
+                  className="mt-3 w-full rounded-lg border border-emerald-700 bg-white px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100"
+                >
+                  Criar conta de paciente (Cadastre-se)
+                </button>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
                   <a
                     href="https://apps.apple.com"

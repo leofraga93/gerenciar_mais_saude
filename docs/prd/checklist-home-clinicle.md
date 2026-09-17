@@ -67,6 +67,7 @@ Wizard em 4 etapas para criar a conta da empresa **antes** do uso pleno do porta
 
 - [x] Rota `/cadastro-clinica` registrada em `src/App.jsx`.
 - [x] Página `ClinicSignupPage.jsx` (wizard em 4 etapas com indicador de progresso).
+- [x] Refatoração do indicador de passos (`ClinicSignupStepper.jsx`): incorporação de ícones vetoriais de cada etapa, texto do passo (`Etapa X`) e título conciso, com ajuste refinado de tipografia para garantir que todo o texto caiba perfeitamente na tela sem cortes ou quebras indesejadas, alinhado à experiência da wizard do paciente.
 - [x] Ao concluir (mock): redirecionar para `/dashboard` com banner **“Complete seu perfil”** (`location.state` + `sessionStorage`).
 - [x] Validação visual dos campos obrigatórios (sem API) em `src/utils/clinicSignupValidation.js`.
 - [x] Serviço mock `registerClinic()` em `src/services/clinicService.js` (Promise + `sessionStorage`).

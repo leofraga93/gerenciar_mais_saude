@@ -1,35 +1,46 @@
 import { useEffect } from 'react'
-import { IconCheckCircle, IconClose } from './Icons'
+import { AlertCircle, CheckCircle2, X } from 'lucide-react'
 
-function Toast({ message, type = 'success', onClose }) {
+function Toast({ isVisible = true, message, type = 'success', onClose }) {
   useEffect(() => {
-    const timer = setTimeout(onClose, 3500)
+    if (!isVisible || !message) return
+    const timer = setTimeout(() => {
+      if (onClose) onClose()
+    }, 4000)
     return () => clearTimeout(timer)
-  }, [onClose])
+  }, [isVisible, message, onClose])
 
-  const styles =
-    type === 'success'
-      ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
-      : 'border-red-200 bg-red-50 text-red-900'
+  if (!isVisible || !message) return null
+
+  const isSuccess = type === 'success'
+
+  const styles = isSuccess
+    ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+    : 'border-red-200 bg-red-50 text-red-900'
 
   return (
-    <div
+    <aside
       role="status"
-      className={`fixed bottom-6 right-6 z-[100] flex max-w-sm items-start gap-3 rounded-xl border px-4 py-3 shadow-lg ${styles}`}
+      aria-live="polite"
+      className={`fixed bottom-6 right-6 z-[100] flex max-w-sm items-start gap-3 rounded-xl border px-4 py-3 shadow-lg transition-all animate-in fade-in slide-in-from-bottom-2 ${styles}`}
     >
-      {type === 'success' ? (
-        <IconCheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
-      ) : null}
-      <p className="flex-1 text-sm font-medium">{message}</p>
-      <button
-        type="button"
-        onClick={onClose}
-        className="shrink-0 rounded p-1 opacity-70 hover:opacity-100"
-        aria-label="Fechar notificação"
-      >
-        <IconClose className="h-4 w-4" />
-      </button>
-    </div>
+      {isSuccess ? (
+        <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" aria-hidden="true" />
+      ) : (
+        <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" aria-hidden="true" />
+      )}
+      <p className="flex-1 text-sm font-medium leading-snug">{message}</p>
+      {onClose && (
+        <button
+          type="button"
+          onClick={onClose}
+          className="shrink-0 rounded-md p-1 opacity-70 transition hover:bg-black/5 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-slate-400"
+          aria-label="Fechar notificação"
+        >
+          <X className="h-4 w-4" aria-hidden="true" />
+        </button>
+      )}
+    </aside>
   )
 }
 

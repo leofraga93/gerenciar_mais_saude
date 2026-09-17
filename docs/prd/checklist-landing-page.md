@@ -47,7 +47,15 @@ Base de comparação: regras atualizadas em `docs/.cursorrulesIndexPage` e roadm
 - [x] **Canais e Redes Sociais:** Ícones padronizados para canais digitais (Site/Web, E-mail, WhatsApp, LinkedIn) sem incluir área restrita separada (utilizando o fluxo nativo de credenciamento).
 - [x] **Linha de Créditos & Termos:** Copyright 2026, links de Termos de Uso / Políticas de Privacidade e razão social / CNPJ.
 
-### 2.4 Limpeza e Organização de Arquitetura
+### 2.4 Carrossel Interativo de Depoimentos Verificados
+- [x] **Componente Dedicado (`TestimonialsCarousel.jsx`):** Substituição de bloco de texto puro por carrossel interativo, elevando a credibilidade institucional.
+- [x] **Dados Ricos e Realistas:** 6 depoimentos contextualizados de clínicas, gestores e pacientes de Lauro de Freitas e RMS com avatares, métricas de impacto, geolocalização e avaliação de 5 estrelas.
+- [x] **Design e Layout Harmonioso:** Cabeçalho de card limpo com aspas estilizadas (`Quote`) alinhadas à esquerda e estrelas de avaliação (`Star`) posicionadas à direita com `justify-between`, tipografia em itálico e rodapé com cargo e localização.
+- [x] **Filtros por Audiência:** Abas interativas para alternar entre "Todos", "Clínicas & Gestores" e "Pacientes".
+- [x] **Navegação e Autoplay:** Botões anterior/próximo, indicador numérico e de pontos (dots), reprodução automática com pausa ao passar o mouse e suporte a gestos touch no mobile.
+- [x] **Zero Emojis na UI:** Aderência estrita à regra global de design com ícones 100% vetoriais da biblioteca `lucide-react`.
+
+### 2.5 Limpeza e Organização de Arquitetura
 - [x] **Remoção de Arquivos Mortos:** Exclusão de `src/pages/DashboardPage.jsx` (arquivo vazio obsoleto) e `src/data/catalogData.js` (substituído pelo catálogo padronizado `standardCatalog.js`).
 - [x] **Preservação de Assets:** Manutenção integral dos arquivos de imagem e logotipos em `src/assets/`.
 - [x] **Imagens Otimizadas:** Uso de fotografia moderna de saúde digital na seção Hero e nos cards de benefícios.

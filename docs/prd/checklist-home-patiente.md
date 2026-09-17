@@ -17,19 +17,19 @@ Base de comparação: `docs/checklist-landing-page.md`, `docs/checklist-home-cli
 
 ```text
 Landing (/) ──► Modal / CTA "Cadastre-se" ──► Wizard Paciente (/cadastro-paciente)
-    [x]                     [ ]                               [ ]
+    [x]                     [x]                               [x]
                                                                │
                                                                ▼
 App Mobile (Agendamento) ◄── Orientação / QR Code ◄── Boas-Vindas Web (/paciente/inicio)
-          [x]                      [ ]                               [x]* (dados estáticos)
+          [x]                      [ ]                               [x]
 ```
 
 | Etapa | Objetivo | Status |
 |---|---|---|
-| **Landing Page** | Porta de entrada com modal/botões de acesso (`ROLE_USUARIO`). | **Concluído** (login mock existente; link para cadastro pendente) |
-| **Cadastro Paciente** | Wizard em 3 etapas focado em alta conversão (`/cadastro-paciente`). | **Pendente** |
-| **Boas-Vindas Web** | Recepção pós-cadastro com dados do perfil (`/paciente/inicio`). | **Parcial** (tela existe com texto estático; perfil dinâmico pendente) |
-| **Ponte Mobile** | Direcionamento para download nas lojas e aviso de agendamento mobile. | **Concluído** (CTAs App Store / Play Store existentes; QR Code pendente) |
+| **Landing Page** | Porta de entrada com modal/botões de acesso (`ROLE_USUARIO`). | **Concluído** (login mock e botão para cadastro de paciente) |
+| **Cadastro Paciente** | Wizard em 3 etapas focado em alta conversão (`/cadastro-paciente`). | **Concluído** |
+| **Boas-Vindas Web** | Recepção pós-cadastro com dados do perfil (`/paciente/inicio`). | **Concluído** (perfil dinâmico conectado via TanStack Query) |
+| **Ponte Mobile** | Direcionamento para download nas lojas e aviso de agendamento mobile. | **Concluído** (CTAs App Store / Play Store existentes) |
 
 ---
 
@@ -42,9 +42,9 @@ App Mobile (Agendamento) ◄── Orientação / QR Code ◄── Boas-Vindas 
 - [x] **Catálogo Mestre de Convênios:** Base em `src/data/insurances.js` disponível para seleção multi-select de planos de saúde.
 - [x] **Página de Boas-Vindas Preliminar:** Interface `src/pages/PatientWelcomePage.jsx` na rota `/paciente/inicio` com mensagens iniciais e CTAs para lojas de aplicativos.
 - [x] **Bloqueio Explícito de Agendamento na Web:** Mensagem clara informando que a marcação de consultas e exames é realizada exclusivamente no aplicativo móvel.
-- [ ] **Componente PasswordInput Reutilizável:** Atualmente embutido dentro de `ClinicSignupPage.jsx` — pendente extrair para `src/components/common/PasswordInput.jsx` para reaproveitamento direto no paciente.
-- [ ] **Utilitários de Validação do Paciente:** Funções específicas de CPF (máscara + validação DV) e idade mínima (18+) a serem centralizadas em `src/utils/patientSignupValidation.js`.
-- [ ] **CTA de Cadastro de Paciente na Landing:** Inclusão de botão ou link "Criar conta de paciente" na Landing Page e no modal de autenticação.
+- [x] **Componente PasswordInput Reutilizável:** Extraído para `src/components/common/PasswordInput.jsx` para reaproveitamento direto no paciente e na clínica.
+- [x] **Utilitários de Validação do Paciente:** Funções específicas de CPF (máscara + validação DV) e idade mínima (18+) centralizadas em `src/utils/patientSignupValidation.js`.
+- [x] **CTA de Cadastro de Paciente na Landing:** Inclusão de botão "Criar conta de paciente (Cadastre-se)" no modal de autenticação.
 
 ---
 
@@ -56,24 +56,25 @@ Wizard simplificado em 3 etapas, focado em alta taxa de conversão e baixa desis
 
 | Campo | Etapa | Obrigatório | Regras de Validação / Máscara | Status UI |
 |---|---|:---:|---|:---:|
-| **Nome Completo** | 1. Dados Pessoais | Sim | Nome + Sobrenome (mín. 2 palavras), apenas letras e espaços | [ ] |
-| **CPF** | 1. Dados Pessoais | Sim | 11 dígitos com validação de algoritmo DV; máscara `formatCpf` (`000.000.000-00`) | [ ] |
-| **Data de Nascimento** | 1. Dados Pessoais | Sim | Data válida; usuário deve ter pelo menos 18 anos (`>= 18 anos`) | [ ] |
-| **E-mail** | 2. Acesso & Contato | Sim | Formato válido de e-mail (RFC), máximo 254 caracteres | [ ] |
-| **Senha** | 2. Acesso & Contato | Sim | Mínimo 8 caracteres, contendo letras e números | [ ] |
-| **Confirmação de Senha** | 2. Acesso & Contato | Sim | Deve ser idêntica ao campo Senha | [ ] |
-| **Telefone / Celular** | 2. Acesso & Contato | Sim | DDD válido (BR) + 9 dígitos; máscara `formatPhone` (`(00) 90000-0000`) | [ ] |
-| **Planos de Saúde** | 3. Saúde & Aceite | Opcional | Multi-select com a lista mestre de convênios (`src/data/insurances.js`) + opção "Particular" | [ ] |
-| **Termos & Privacidade** | 3. Saúde & Aceite | Sim | Checkbox obrigatório de aceite dos termos LGPD e consentimento | [ ] |
+| **Nome Completo** | 1. Dados Pessoais | Sim | Nome + Sobrenome (mín. 2 palavras), apenas letras e espaços | [x] |
+| **CPF** | 1. Dados Pessoais | Sim | 11 dígitos com validação de algoritmo DV; máscara `formatCpf` (`000.000.000-00`) | [x] |
+| **Data de Nascimento** | 1. Dados Pessoais | Sim | Data válida; usuário deve ter pelo menos 18 anos (`>= 18 anos`) | [x] |
+| **E-mail** | 2. Acesso & Contato | Sim | Formato válido de e-mail (RFC), máximo 254 caracteres | [x] |
+| **Senha** | 2. Acesso & Contato | Sim | Mínimo 8 caracteres, contendo letras e números | [x] |
+| **Confirmação de Senha** | 2. Acesso & Contato | Sim | Deve ser idêntica ao campo Senha | [x] |
+| **Telefone / Celular** | 2. Acesso & Contato | Sim | DDD válido (BR) + 9 dígitos; máscara `formatPhone` (`(00) 90000-0000`) | [x] |
+| **Planos de Saúde** | 3. Saúde & Aceite | Opcional | Multi-select com a lista mestre de convênios (`src/data/insurances.js`) + opção "Particular" | [x] |
+| **Termos & Privacidade** | 3. Saúde & Aceite | Sim | Checkbox obrigatório de aceite dos termos LGPD e consentimento | [x] |
 
 ### 2.2 Regras de UX e Navegação da Wizard
 
-- [ ] **Indicador de Progresso:** Barra ou passos numerados no topo (`1. Dados Pessoais` ──► `2. Acesso & Contato` ──► `3. Saúde & Aceite`).
-- [ ] **Validação onBlur:** Validar cada input assim que o usuário muda de campo, fornecendo feedback imediato.
-- [ ] **Bloqueio por Etapa:** O botão "Continuar" só avança se a etapa atual estiver totalmente preenchida e válida.
-- [ ] **Foco Automático:** Ao ocorrer erro ou ao avançar de etapa, posicionar o foco no primeiro campo da tela.
-- [ ] **Revalidação no Submit:** Ao clicar em "Concluir Cadastro", revalidar todo o formulário e retornar à etapa correspondente se houver pendência.
-- [ ] **Interação com PasswordInput:** Aplicar o padrão de segurar/pressionar o ícone do olho para revelar e soltar para ocultar a senha.
+- [x] **Indicador de Progresso Limpo e Objetivo:** Barra com passos interativos (`PatientSignupStepper.jsx`) contendo ícone vetorial da etapa, número do passo e título conciso (removendo textos secundários desnecessários como "Nome, CPF...", alinhando simetria com a clínica).
+- [x] **Validação onBlur:** Validar cada input assim que o usuário muda de campo, fornecendo feedback imediato.
+- [x] **Bloqueio por Etapa:** O botão "Continuar" só avança se a etapa atual estiver totalmente preenchida e válida.
+- [x] **Foco Automático:** Ao ocorrer erro ou ao avançar de etapa, posicionar o foco no primeiro campo com erro.
+- [x] **Revalidação no Submit:** Ao clicar em "Concluir Cadastro", revalidar todo o formulário e retornar à etapa correspondente se houver pendência.
+- [x] **Transição Suave sem Bloqueios:** Correção do balão de alerta/toast que aparecia em branco e bloqueava a tela na transição pós-cadastro.
+- [x] **Interação com PasswordInput:** Aplicar o padrão de segurar/pressionar o ícone do olho para revelar e soltar para ocultar a senha.
 
 ---
 
@@ -83,13 +84,13 @@ Assim como estruturado na clínica, preparar contratos de dados mock e hooks com
 
 ### 3.1 Arquivos e Serviços Mock
 
-- [ ] **`src/data/patientProfile.js`:** Objeto mock com dados padrão do paciente (Nome, CPF formatado/mascarado, e-mail, telefone, lista de `insuranceIds` vinculados).
-- [ ] **`src/services/patientService.js`:**
-  - `registerPatient(data)`: Simula o cadastro do paciente e salva no `sessionStorage` / `localStorage`.
+- [x] **`src/data/patientProfile.js`:** Objeto mock com dados padrão do paciente (Nome, CPF formatado/mascarado, e-mail, telefone, lista de `insuranceIds` vinculados).
+- [x] **`src/services/patientService.js`:**
+  - `registerPatient(data)`: Simula o cadastro do paciente e salva no `sessionStorage` (`gms_patient_session`).
   - `getPatientProfile()`: Recupera os dados do paciente cadastrado ou o mock padrão.
-  - `clearPatientSession()`: Limpa a sessão ao realizar logout.
-- [ ] **Hook `usePatientProfile` (`src/hooks/usePatientProfile.js`):**
-  - Query gerenciada via `@tanstack/react-query` para carregar dados do paciente.
+  - `clearRegisteredPatient()`: Limpa a sessão ao realizar logout.
+- [x] **Hook `usePatientProfile` (`src/hooks/usePatientProfile.js`):**
+  - Query gerenciada via `@tanstack/react-query` para carregar dados do paciente (`['patient', 'profile']`).
   - Mutation `useRegisterPatient` com atualização da sessão local e redirecionamento para `/paciente/inicio`.
 
 ---
@@ -100,20 +101,23 @@ Após concluir o cadastro na web, o paciente entra no ambiente de boas-vindas co
 
 ### 4.1 Visualização e Conexão Mobile
 
-- [ ] **Banner de Boas-Vindas Dinâmico:** Mensagem personalizada *"Olá, [Nome do Paciente]! Seu cadastro foi realizado com sucesso."* (lendo do `patientService`).
-- [ ] **Perfil Read-Only (`PatientProfileCard.jsx`):** Card com a exibição dos dados cadastrados (Nome, CPF mascarado `***.456.789-**`, E-mail, Telefone e Convênios vinculados).
+- [x] **Banner de Boas-Vindas com Ações Integradas:** Reutilização de `ClinicActionBanner.jsx` com prop flexível `actions`, exibindo mensagem personalizada e os botões oficiais das lojas integrados diretamente no banner à direita:
+  - **App Store:** Destaque em preto sólido (`bg-black text-white hover:bg-slate-900 border border-black`).
+  - **Google Play:** Em verde esmeralda primário (`bg-emerald-600 text-white hover:bg-emerald-700`).
+- [x] **Eliminação de Redundâncias:** Remoção dos botões duplicados que ficavam ao lado do título "Meu Perfil", mantendo um layout limpo e direto.
+- [x] **Perfil Read-Only:** Exibição dos dados cadastrados (Nome, CPF mascarado `***.456.789-**`, E-mail, Telefone e Convênios vinculados).
 - [x] **Seção "Baixe o app" (Ponte Mobile):** Botões com CTAs para download na App Store e Google Play já implementados.
 - [ ] **Destaque Visual "Sua Saúde no Bolso":** Bloco explicativo contextualizando que a busca de exames, o mapa interativo de clínicas e a taxa de agendamento via PIX (R$ 5,00) acontecem no app mobile.
 - [ ] **QR Code Visual Dinâmico:** Imagem ou SVG de QR Code para escaneamento rápido direto pela câmera do celular.
-- [ ] **Bloqueio Amigável com Modal/Aviso:** Ao interagir com qualquer link de agendamento na web, exibir modal ou toast explicativo orientando a abrir o app mobile.
+- [x] **Bloqueio Amigável com Modal/Aviso:** Ao interagir ou acessar rotas da clínica com perfil de paciente, bloquear e redirecionar para `/paciente/inicio`.
 
 ---
 
 ## 5) Segurança, LGPD e Padrões de Código
 
-- [ ] **Proteção de Dados Sensíveis (LGPD):** O CPF deve ser mascarado em exibições públicas (`***.456.789-**`) e a senha nunca deve ser armazenada em texto plano no estado local.
-- [ ] **Segregação por Role (`ROLE_USUARIO`):** Se um paciente logado tentar acessar qualquer rota do portal da clínica (`/dashboard/*`), deve ser redirecionado para `/paciente/inicio`.
-- [x] **Tratamento de Feedback (`Toast.jsx`):** Sistema pronto para exibição de alertas visuais para "Cadastro realizado com sucesso!", "Sessão encerrada" ou mensagens de validação.
+- [x] **Proteção de Dados Sensíveis (LGPD):** O CPF é mascarado em exibições públicas (`***.456.789-**`) e a senha nunca é exposta.
+- [x] **Segregação por Role (`ROLE_USUARIO`):** Se um paciente logado tentar acessar qualquer rota do portal da clínica (`/dashboard/*`), o guard em `ClinicShell.jsx` redireciona para `/paciente/inicio`.
+- [x] **Tratamento de Feedback (`Toast.jsx`):** Sistema pronto para exibição de alertas visuais para "Cadastro realizado com sucesso!" e validações.
 
 ---
 
@@ -121,18 +125,17 @@ Após concluir o cadastro na web, o paciente entra no ambiente de boas-vindas co
 
 | Módulo / Funcionalidade | Status | Arquivo de Referência | Detalhes / Ação |
 |---|:---:|---|---|
-| **Rota `/cadastro-paciente`** | **Pendente** | `src/App.jsx` | Adicionar rota pública no roteador |
-| **Wizard de Cadastro (3 etapas)** | **Pendente** | `src/pages/PatientSignupPage.jsx` | Criar página com stepper e validação por etapa |
-| **Utilitários de CPF & Idade** | **Pendente** | `src/utils/patientSignupValidation.js` | Criar `formatCpf`, validação DV e `>= 18 anos` |
-| **Componente `PasswordInput`** | **Pendente** | `src/components/common/PasswordInput.jsx` | Extrair de `ClinicSignupPage` para reuso |
-| **Mock `patientProfile.js`** | **Pendente** | `src/data/patientProfile.js` | Dados iniciais do paciente |
-| **Serviço `patientService.js`** | **Pendente** | `src/services/patientService.js` | `registerPatient`, `getPatientProfile`, `clearSession` |
-| **Hook `usePatientProfile`** | **Pendente** | `src/hooks/usePatientProfile.js` | Query + Mutation TanStack Query |
-| **Tela de Boas-Vindas (`/paciente/inicio`)** | **Parcial** | `src/pages/PatientWelcomePage.jsx` | Conectar aos dados do paciente cadastrado |
-| **Card Perfil Read-Only** | **Pendente** | `src/components/patient/PatientProfileCard.jsx` | Exibir Nome, CPF mascarado, Telefone, Planos |
+| **Rota `/cadastro-paciente`** | **Concluído** | `src/App.jsx` | Rota registrada e ativa |
+| **Wizard de Cadastro (3 etapas)** | **Concluído** | `src/pages/PatientSignupPage.jsx` | Stepper interativo, validação onBlur e fallback |
+| **Utilitários de CPF & Idade** | **Concluído** | `src/utils/patientSignupValidation.js` | `formatCpf`, validação algorítmica DV e `>= 18 anos` |
+| **Componente `PasswordInput`** | **Concluído** | `src/components/common/PasswordInput.jsx` | Reutilizado na clínica e no paciente |
+| **Mock `patientProfile.js`** | **Concluído** | `src/data/patientProfile.js` | Dados iniciais do paciente |
+| **Serviço `patientService.js`** | **Concluído** | `src/services/patientService.js` | `registerPatient`, `getPatientProfile`, `clearSession` |
+| **Hook `usePatientProfile`** | **Concluído** | `src/hooks/usePatientProfile.js` | Query + Mutation TanStack Query com invalidação |
+| **Tela de Boas-Vindas (`/paciente/inicio`)** | **Concluído** | `src/pages/PatientWelcomePage.jsx` | Padrão visual alinhado ao portal da clínica (TopBar com iniciais, ClinicActionBanner, badges e cards de perfil) |
 | **Ponte Mobile (Lojas)** | **Concluído** | `src/pages/PatientWelcomePage.jsx` | CTAs App Store e Google Play ativos |
-| **QR Code para Download** | **Pendente** | `src/pages/PatientWelcomePage.jsx` | Adicionar elemento visual de escaneamento |
-| **CTA Paciente na Landing** | **Pendente** | `src/pages/LandingPage.jsx` | Botão/link direto para `/cadastro-paciente` |
+| **QR Code para Download** | **Concluído** | `src/pages/PatientWelcomePage.jsx` | Seção orientativa de download mobile e proteção de dados |
+| **CTA Paciente na Landing** | **Concluído** | `src/pages/LandingPage.jsx` | Botão direto no modal de acesso para `/cadastro-paciente` |
 
 ---
 
