@@ -75,10 +75,11 @@ Este documento contém as **regras permanentes e inegociáveis** do projeto *Ger
 - **`ROLE_CLINICA` (Portal Administrativo Web)**:
   - Rota base: `/dashboard/*` envolvida por `ClinicShell.jsx`.
   - Contém: Visão Geral (`/dashboard`), Agenda (`/dashboard/agenda`), Meus Serviços (`/dashboard/servicos`), Financeiro (`/dashboard/financeiro`) e Perfil da Clínica (`/dashboard/perfil`).
-- **`ROLE_USUARIO` / Paciente (Ponte Web-to-App)**:
+- **`ROLE_USUARIO` / Paciente (Fluxo Web e evolução Mobile)**:
   - Rota base: `/paciente/inicio` e `/cadastro-paciente`.
-  - **Regra de Escopo da Web**: O agendamento real de consultas e o mapa geolocalizado de clínicas são **exclusivos do App Mobile**.
-  - Na Web, exiba boas-vindas, confirmação de cadastro, perfil read-only e links diretos para download nas lojas (App Store e Google Play) com explicação clara. Bloqueie tentativas de agendamento web com aviso amigável.
+  - **Agendamento**: O fluxo de busca, carrinho e solicitação de agendamentos será implementado primeiro no site (Landing Page / visão Paciente e rotas necessárias), com persistência mock conforme as specs. A experiência equivalente será incorporada ao App Mobile em etapa posterior.
+  - A localização customizada para terceiros e o agendamento web são detalhados na SPEC-06. A Landing Page neutra e a separação dos nichos são detalhadas na SPEC-04. Não bloquear um fluxo de agendamento web definido por essas specs com aviso de uso exclusivo do app.
+  - A página `/paciente/inicio` mantém boas-vindas, confirmação de cadastro e perfil conforme seu escopo; links para lojas podem apresentar a etapa mobile futura sem substituir nem interromper o fluxo web.
 - **Proteção Visual de Rotas**:
   - Mantenha guard mock verificando perfil ativo para evitar que paciente acesse `/dashboard` ou vice-versa.
 

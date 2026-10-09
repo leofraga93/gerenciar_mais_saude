@@ -6,29 +6,24 @@ Stack: React.js (Vite), Tailwind CSS, TanStack Query.
 Estilo Visual: Deve seguir rigorosamente as definições de cores, fontes e variáveis estabelecidas no arquivo src/index.css.
 Proibição Estrita de Emojis: É ESTRITAMENTE PROIBIDO O USO DE EMOJIS na interface do usuário (UI). Todas as telas, modais, alertas, botões e toasts devem utilizar exclusivamente ícones vetoriais estilizáveis (ex: src/components/common/Icons.jsx) customizáveis via Tailwind CSS.
 
-2. Regras da Landing Page (Conversão Dual)
-A página deve ser harmônica, equilibrando os benefícios para os dois públicos.
+2. Regras da Landing Page (Entrada Neutra e Experiências Segmentadas)
+A rota inicial é um hub neutro e convidativo. Não deve tentar apresentar catálogo de exames e benefícios comerciais da clínica ao mesmo tempo.
 Proposta de Valor Unificada: "Saúde sem burocracia para quem cuida e para quem precisa."
-Seções de Público:
-Para Clínicas: Foco em redução de no-show, gestão de agenda e recebimento via PIX.
-Para Pacientes: Foco em facilidade de agendamento, transparência de preços e busca por convênio.
-CTAs Distintos no Header/Hero:
-Botão "Sou Clínica" (Primário).
-Botão "Sou Paciente" (Secundário/Contorno).
+Estado inicial: cabeçalho institucional, hero com a promessa unificada, duas escolhas explícitas com peso visual equivalente ("Sou Paciente" e "Sou Clínica") e rodapé comum. Não exibir métricas comerciais, catálogo, preços ou depoimentos segmentados antes da escolha.
+Depois da escolha, substituir a área principal sem recarga:
+- Paciente: busca por exame/TUSS, catálogo e filtros, transparência de preços, jornada e depoimentos de pacientes. Localização para terceiros, carrinho e solicitação de agendamento no site pertencem à SPEC-06.
+- Clínica: proposta de valor, redução de no-show, organização da agenda, recebimento, jornada de credenciamento e depoimentos de clínicas. Não exibir números sem fonte nem calculadora de ROI nesta etapa.
+Cabeçalho e rodapé permanecem compartilhados; um seletor no cabeçalho permite alternar entre os nichos. Credenciamento segue na SPEC-05.
 
 3. Lógica de Modais e Entrada
 O componente de login/cadastro deve ser inteligente:
-Modal Único de Acesso: Deve conter abas (Tabs) ou botões de seleção clara: "Acesso Clínica" vs "Acesso Paciente".
-Cadastro de Paciente: Permitir que o paciente realize o cadastro básico (Nome, CPF, E-mail, Telefone) diretamente pela Web para garantir a conversão imediata.
-Fluxo de Autenticação (Ações do Botão):
-Validar e-mail/senha via API.
-Se ROLE_CLINICA: Redirecionar para o portal administrativo em /dashboard.
-Se ROLE_USUARIO (Paciente):
-Exibir tela de "Boas-vindas".
-Fornecer links diretos para as lojas de aplicativos (App Store/Play Store) para que ele continue a jornada mobile, conforme a Visão de Negócio.
-Permitir visualização básica do perfil, mas bloquear funções de agendamento que são exclusivas do App.
+Modal Único de Acesso: `AuthModal` abre já no contexto do nicho escolhido; não duplicar um modal por público. O comportamento base é mock-first: Clínica direciona para `/dashboard`, Paciente para `/paciente/inicio`; não integrar API real nesta etapa.
+Cadastro de Paciente: O CTA direciona para `/cadastro-paciente`; os campos e regras pertencem à spec do cadastro do paciente.
+Credenciamento de Clínica: O CTA direciona para `/cadastro-clinica` e o fluxo pertence à SPEC-05.
+Agendamento: A busca, o carrinho e a solicitação de agendamentos serão implementados no site pela SPEC-06. O App Mobile receberá a experiência equivalente em etapa posterior. Não bloquear o fluxo web com aviso de uso exclusivo do app.
+Google Auth no modal do paciente pertence à SPEC-07; SPEC-04 prepara o modal contextual.
 
 4. Diretrizes de UI/UX e Código
-Componentização: Isolar HeroClinic.jsx, HeroPatient.jsx, AuthModal.jsx.
+Componentização: Isolar `NeutralHeroSelector.jsx`, `PatientNicheView.jsx`, `ClinicNicheView.jsx` e `NicheSegmentedControl.jsx`; manter `AuthModal.jsx` único e contextual. Reutilizar componentes existentes de catálogo/depoimentos quando aplicável.
 Identidade Visual: Utilize as classes do Tailwind em conformidade com o index.css. Mantenha a paleta de cores institucional em todos os estados de hover e active.
 Responsividade: A Landing Page deve ser 100% funcional em dispositivos móveis, já que muitos pacientes virão de redes sociais pelo celular.
