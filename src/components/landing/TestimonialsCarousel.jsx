@@ -2,8 +2,6 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import {
   Star,
   Quote,
-  Building2,
-  User,
   MapPin,
   ChevronLeft,
   ChevronRight,
@@ -110,8 +108,7 @@ const TESTIMONIALS_DATA = [
   },
 ]
 
-export function TestimonialsCarousel() {
-  const [activeFilter, setActiveFilter] = useState('all') // 'all' | 'clinic' | 'patient'
+export function TestimonialsCarousel({ audience }) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isAutoPlaying, setIsAutoPlaying] = useState(true)
   const [itemsPerView, setItemsPerView] = useState(() => {
@@ -141,20 +138,13 @@ export function TestimonialsCarousel() {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  // Filtra os depoimentos com base na aba ativa
+  // Cada visão segmentada recebe apenas relatos da sua audiência.
   const filteredTestimonials = useMemo(() => {
-    if (activeFilter === 'all') return TESTIMONIALS_DATA
-    return TESTIMONIALS_DATA.filter((item) => item.type === activeFilter)
-  }, [activeFilter])
+    return TESTIMONIALS_DATA.filter((item) => item.type === audience)
+  }, [audience])
 
   // Limite máximo de translação
   const maxIndex = Math.max(0, filteredTestimonials.length - itemsPerView)
-
-  // Ao mudar de filtro, reposiciona para o primeiro slide
-  const handleFilterChange = (filter) => {
-    setActiveFilter(filter)
-    setCurrentIndex(0)
-  }
 
   const handleNext = useCallback(() => {
     setCurrentIndex((prev) => (prev >= maxIndex ? 0 : prev + 1))
@@ -202,68 +192,32 @@ export function TestimonialsCarousel() {
 
   const totalDots = maxIndex + 1
 
+  useEffect(() => {
+    setCurrentIndex(0)
+  }, [audience])
+
+  const audienceTitle = audience === 'clinic' ? 'O que clínicas e gestores contam' : 'O que pacientes contam'
+  const audienceDescription = audience === 'clinic'
+    ? 'Experiências de quem organiza e oferece serviços de saúde.'
+    : 'Experiências de quem busca atendimento com mais clareza.'
+
   return (
     <section
       id="depoimentos"
-      aria-label="Depoimentos de Clínicas e Pacientes"
+      aria-label={audience === 'clinic' ? 'Depoimentos de clínicas e gestores' : 'Depoimentos de pacientes'}
       className="space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-xs md:p-8"
       onMouseEnter={() => setIsAutoPlaying(false)}
       onMouseLeave={() => setIsAutoPlaying(true)}
     >
-      {/* Topo da Seção: Título e Filtros Interativos */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between border-b border-slate-100 pb-6">
+      {/* Topo da seção */}
+      <div className="flex flex-col gap-4 border-b border-slate-100 pb-6">
         <div>
-
           <h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
-            Histórias reais de quem confia na rede
+            {audienceTitle}
           </h2>
           <p className="mt-1 text-sm text-slate-600 max-w-2xl">
-            Transparência para pacientes e eficiência operacional para clínicas e consultórios parceiros.
+            {audienceDescription}
           </p>
-        </div>
-
-        {/* Abas de Filtro */}
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => handleFilterChange('all')}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
-              activeFilter === 'all'
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            <span>Todos</span>
-            <span className="rounded-full bg-black/10 px-1.5 py-0.2 text-[10px]">
-              {TESTIMONIALS_DATA.length}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleFilterChange('clinic')}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
-              activeFilter === 'clinic'
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            <Building2 className="h-3.5 w-3.5" />
-            <span>Clínicas & Gestores</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleFilterChange('patient')}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
-              activeFilter === 'patient'
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            <User className="h-3.5 w-3.5" />
-            <span>Pacientes</span>
-          </button>
         </div>
       </div>
 

@@ -3,6 +3,7 @@
 * **Status**: CONCLUÍDO
 * **Data de Início**: 2026-09-17
 * **Data de Conclusão**: 2026-09-17
+* **Última revisão**: 2026-10-08 (remoção do eyebrow decorativo do cabeçalho do cadastro)
 * **Documento PRD de Referência**: `docs/prd/checklist-home-patiente.md` (Seção 2)
 
 
@@ -207,6 +208,7 @@
 * [x] Correção do balão de alerta/toast vazio que impedia o fechamento ou poluía a tela de boas-vindas do paciente pós-cadastro.
 
 * [x] A tela `/paciente/inicio` integra os botões de download (App Store em preto e Google Play em verde esmeralda) dentro do banner de boas-vindas via `ClinicActionBanner`, eliminando botões redundantes no cabeçalho.
+* [x] A tela de cadastro identifica sua finalidade diretamente no título, sem eyebrow ou etiqueta decorativa acima dele.
 
 
 

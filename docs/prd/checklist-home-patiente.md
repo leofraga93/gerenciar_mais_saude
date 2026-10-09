@@ -28,6 +28,7 @@ Landing neutra (/) ──► Visão Paciente ──► Vitrine / localização (
 *  [x] **Componente FormField:** Estrutura para rótulos, erros acessíveis e bordas vermelhas.
 *  [x] **Componente Toast:** Sistema de notificações flutuantes.
 *  [x] **Wizard de Cadastro do Paciente (/cadastro-paciente):** 3 etapas com validação de CPF (DV), idade mínima (18+), e-mail/senha com `PasswordInput.jsx` e suporte a convênios em pills.
+*  [x] **Título do cadastro:** A finalidade da página é informada diretamente pelo título, sem etiqueta/eyebrow decorativo acima dele.
 *  [x] **Página de Boas-Vindas (/paciente/inicio):** Perfil read-only, banner unificado `ClinicActionBanner` e CTAs App Store / Google Play.
 
 --------------------------------------------------------------------------------

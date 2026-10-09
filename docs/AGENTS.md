@@ -35,6 +35,10 @@ Este documento contém as **regras permanentes e inegociáveis** do projeto *Ger
 - **Proibição Estrita de Emojis na Interface (Zero Emojis na UI)**:
   - É **terminantemente proibido** o uso de emojis na interface do usuário (telas, cards, botões, modais, toasts, badges, opções de select).
   - Use exclusivamente ícones vetoriais de `lucide-react` ou `@fortawesome/*`.
+- **Proibição de Eyebrows/Sobretítulos Decorativos**:
+  - **Não utilizar eyebrows** (rótulos curtos, geralmente em caixa alta ou letras espaçadas, posicionados imediatamente acima de um título) em páginas, seções, cards ou formulários. Exemplos a evitar: "Cuidado com mais clareza" antes de um título e "Uma operação mais organizada" antes da descrição da seção.
+  - O próprio título deve identificar com clareza o conteúdo, objetivo ou ação da seção. Evite rótulos genéricos, slogans e textos decorativos que apenas repetem ou antecipam o título.
+  - Não substituir o eyebrow por badge, etiqueta, kicker ou outro elemento visual equivalente. Use texto auxiliar somente quando acrescentar informação concreta que não esteja repetida no título e for necessária para a compreensão ou execução da tarefa.
 - **Paleta de Cores e Identidade Visual**:
   - Aderência obrigatória ao `src/index.css` e às convenções Tailwind do projeto.
   - Ação Primária / Sucesso / Saúde: `emerald-600` (hover: `emerald-700`, foco: ring `emerald-200`).

@@ -17,22 +17,26 @@ Base de comparação: `docs/AGENTS.md`, SPEC-04 e roadmap do projeto.
 
 #### 2) Reformulação da Entrada Dual & Seleção de Nicho (SPEC-04)
 ##### 2.1 Hub Neutro de Decisão Fluída (`activeNiche = 'NONE'`)
-*  [ ] **Hero Selector Neutro (`NeutralHeroSelector.jsx`):** Tela inicial limpa e fluída apresentando a proposta de valor unificada e dois cards de decisão explícita: **"Sou Paciente"** vs **"Sou Clínica"**.
-*  [ ] **Conteúdo neutro compartilhado:** Cabeçalho institucional, promessa unificada, dois cards de escolha e rodapé. Não exibir catálogo, preços, depoimentos segmentados, métricas comerciais ou chamadas de agendamento antes da escolha.
-*  [ ] **Ativação Dinâmica de Nicho:** O estado `activeNiche` (`'NONE'` | `'PATIENT'` | `'CLINIC'`) transita a interface sem recarregar a página.
-*  [ ] **Chave Seletora no Cabeçalho (`NicheSegmentedControl.jsx`):** Permite alternar entre as visões de Paciente e Clínica a qualquer momento no topo da página.
-*  [ ] **Suporte a Parâmetros de URL & Persistência:** Leitura automática de `?nicho=paciente` ou `?nicho=clinica` e persistência temporária da escolha no `sessionStorage` (`gms_selected_niche`).
+*  [x] **Hero Selector Neutro (`NeutralHeroSelector.jsx`):** Tela inicial limpa e fluída apresentando a proposta de valor unificada e dois cards de decisão explícita: **"Sou Paciente"** vs **"Sou Clínica"**.
+*  [x] **Conteúdo neutro compartilhado:** Cabeçalho fixo e translúcido, marca clicável para a página inicial, hero com imagem ampla, promessa unificada, dois cards de escolha e métricas demonstrativas com aviso de atualização futura. Não exibir catálogo, preços, depoimentos segmentados ou chamadas de agendamento antes da escolha.
+*  [x] **Métricas da landing neutra:** Apresenta `120+`, `94%` e `4.8/5` como valores ilustrativos; inclui aviso de que serão atualizados quando houver base consolidada. A integração de dados fica para etapa posterior.
+*  [x] **Imagens de cada audiência:** Hero neutro em imagem Unsplash ampla, e heros próprios com imagens contextuais para Paciente e Clínica, com sobreposição para preservar legibilidade.
+*  [x] **Marca no cabeçalho:** Logo, nome e assinatura institucional compõem um único link para `/`; ao clicar, limpa o nicho salvo e retorna ao estado neutro, sem query `nicho`.
+*  [x] **Títulos das seções:** As visões neutra e de clínica não usam eyebrows decorativos; os títulos descrevem diretamente o conteúdo da seção.
+*  [x] **Ativação Dinâmica de Nicho:** O estado `activeNiche` (`'NONE'` | `'PATIENT'` | `'CLINIC'`) transita a interface sem recarregar a página.
+*  [x] **Chave Seletora no Cabeçalho (`NicheSegmentedControl.jsx`):** Permite alternar entre as visões de Paciente e Clínica a qualquer momento no topo da página.
+*  [x] **Suporte a Parâmetros de URL & Persistência:** Leitura automática de `?nicho=paciente` ou `?nicho=clinica` e persistência temporária da escolha no `sessionStorage` (`gms_selected_niche`).
 
 ##### 2.2 Visão Segmentada B2C — Paciente (`activeNiche = 'PATIENT'`)
-*  [ ] **Busca de Exames por Nome e Código TUSS:** Campo de busca direta na vitrine B2C.
+*  [x] **Busca de Exames por Nome e Código TUSS:** Campo de busca direta na vitrine B2C.
 *  [ ] **Localização Customizada para Terceiros (`LocationSearchInput.jsx`, SPEC-06):** Permite ao paciente alterar manualmente o endereço/bairro para buscar e agendar exames para parentes em outras regiões (ex: Vilas do Atlântico / Lauro de Freitas). Não implementar na SPEC-04.
-*  [ ] **Vitrine B2C de Exames & Filtros Multi-critério:** Filtros por categoria, convênios (pills esmeralda) e faixa de valor interativa (`PriceRangeFilter.jsx`).
-*  [ ] **CTAs Contextualizados B2C:** Botão primário **"Cadastre-se"** (`/cadastro-paciente`) e botão secundário **"Entrar"** (abre `AuthModal` no contexto Paciente). O botão Google é acrescentado na SPEC-07.
+*  [x] **Vitrine B2C de Exames & Filtros Multi-critério:** Filtros por categoria, convênios (pills esmeralda) e faixa de valor interativa (`PriceRangeFilter.jsx`).
+*  [x] **CTAs Contextualizados B2C:** Botão primário **"Cadastre-se"** (`/cadastro-paciente`) e botão secundário **"Entrar"** (abre `AuthModal` no contexto Paciente). O botão Google é acrescentado na SPEC-07.
 
 ##### 2.3 Visão Segmentada B2B — Clínica (`activeNiche = 'CLINIC'`)
-*  [ ] **Proposta de Valor B2B:** Foco em redução de *no-show*, gestão de agenda e liquidação digital.
-*  [ ] **Benefícios Operacionais:** Cards qualitativos sobre agenda, redução de faltas e recebimento. Não publicar os números atuais (`120+`, `94%`, `4.8/5`) sem fonte definida nem incluir calculadora de ROI nesta etapa.
-*  [ ] **CTAs Contextualizados B2B:** Botão primário **"Credenciar Minha Clínica"** (`/cadastro-clinica`, fluxo da SPEC-05) e botão secundário **"Acessar Portal"** (abre `AuthModal` no contexto Clínica).
+*  [x] **Proposta de Valor B2B:** Foco em redução de *no-show*, gestão de agenda e liquidação digital.
+*  [x] **Benefícios Operacionais:** Cards qualitativos sobre agenda, redução de faltas e recebimento. Métricas demonstrativas aparecem somente no estado neutro e são claramente identificadas como ilustrativas; não incluir calculadora de ROI nesta etapa.
+*  [x] **CTAs Contextualizados B2B:** Botão primário **"Credenciar Minha Clínica"** (`/cadastro-clinica`, fluxo da SPEC-05) e botão secundário **"Acessar Portal"** (abre `AuthModal` no contexto Clínica).
 
 --------------------------------------------------------------------------------
 
@@ -73,7 +77,7 @@ Na SPEC-04, o carrossel não aparece no estado neutro. A visão Paciente exibe a
 
 #### 4) O que está em preparação & Análise de Novas Funcionalidades
 ##### 4.1 Próximos Passos Imediatos
-*  [ ] Implementação do Hub Neutro e Seleção de Nicho (`SPEC-04`).
+*  [x] Implementação do Hub Neutro e Seleção de Nicho (`SPEC-04`).
 *  [ ] Integração do agendamento web e busca para terceiros (`SPEC-06`), conectada ao ponto de extensão do catálogo B2C.
 *  [ ] Integração com botão **"Entrar com o Google"** (`SPEC-07`) no `AuthModal` contextual criado/adaptado pela SPEC-04.
 *  [ ] Integração do formulário de acesso com backend de autenticação real (JWT / Token).
@@ -82,5 +86,6 @@ Na SPEC-04, o carrossel não aparece no estado neutro. A visão Paciente exibe a
 
 #### 5) Mapa Rápido de Status (Visão Executiva)
 *   **Atende:** Base visual e conversão dual, CTAs duplos, modal inteligente, faixa passo a passo em 4 etapas, catálogo público com busca multi-critério (Categoria + Convênio + Faixa de Valor), carrossel de depoimentos e rodapé Dark Theme.
-*   **Planejado:** Hub neutro e visões segmentadas (`SPEC-04`); credenciamento (`SPEC-05`); localização, carrinho e agendamento web (`SPEC-06`); Google Auth e canais WhatsApp (`SPEC-07`).
+*   **Concluído:** Hub neutro e visões segmentadas (`SPEC-04`).
+*   **Planejado:** Credenciamento (`SPEC-05`); localização, carrinho e agendamento web (`SPEC-06`); Google Auth e canais WhatsApp (`SPEC-07`).
 *   **Fora desta sequência mock-first:** API real de autenticação.
