@@ -35,6 +35,7 @@ Cabeçalho, identidade visual e rodapé são compartilhados. Ao selecionar um ni
 * O cabeçalho permanece visível durante a rolagem com `position: sticky`, fundo translúcido e desfoque; o conjunto logo, nome e assinatura institucional é um único link para `/`. Ao clicar, limpa o nicho da URL e de `gms_selected_niche`, retornando ao estado neutro.
 * O hero neutro usa uma imagem Unsplash de cuidado em saúde em toda a área, overlay escuro para contraste e cards claros de seleção. A seção de métricas fica logo abaixo do hero.
 * Paciente e Clínica recebem imagens Unsplash distintas nos próprios heros, mantendo títulos, descrição e CTAs sobre overlay de contraste.
+* No hero da Clínica, a imagem responsiva usa enquadramento vertical em 30% (`object-position: center 30%`) para manter o rosto visível e preservar melhor o corpo em telas largas.
 * Referências usadas: neutro `photo-1576091160399-112ba8d25d1d`; paciente `photo-1559839734-2b71ea197ec2`; clínica `photo-1622253692010-333f2da6031d`. As três imagens vêm do Unsplash e são carregadas por URL.
 * Os valores `120+`, `94%` e `4.8/5` são conteúdo demonstrativo estático, não alegações verificadas. Exibir nota explícita informando que serão atualizados após existir base consolidada. A futura fonte de dados será conectada posteriormente, sem backend nesta spec.
 * As seções da landing usam títulos diretos, sem eyebrows, slogans ou etiquetas decorativas acima deles. Textos auxiliares permanecem somente quando acrescentam informação concreta.

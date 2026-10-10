@@ -1,6 +1,6 @@
-import { useCallback, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { Activity, Building2, HeartPulse, Mail, MapPin, MessageCircle, Phone, ShieldCheck } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Activity, Building2, HeartPulse, ListChecks, Mail, MapPin, MessageCircle, Phone, ShieldCheck } from 'lucide-react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   faFacebookF,
@@ -12,6 +12,10 @@ import { Link, useNavigate } from 'react-router-dom'
 import { StatCard } from '../components/clinic/StatCard'
 import brandLogo from '../assets/logo-500-sem-fundo.png'
 import AuthModal from '../components/landing/AuthModal'
+import AdminAccessModal from '../components/landing/AdminAccessModal'
+import ExamCartDrawer from '../components/patient/ExamCartDrawer'
+import OrderSummaryModal from '../components/patient/OrderSummaryModal'
+import ExamRequestReviewModal from '../components/patient/ExamRequestReviewModal'
 import ClinicNicheView from '../components/landing/ClinicNicheView'
 import NeutralHeroSelector from '../components/landing/NeutralHeroSelector'
 import NicheSegmentedControl from '../components/landing/NicheSegmentedControl'
@@ -19,8 +23,15 @@ import PatientNicheView from '../components/landing/PatientNicheView'
 import { getRegisteredClinic } from '../services/clinicService'
 import { getRegisteredPatient } from '../services/patientService'
 import { useNicheSelection } from '../hooks/useNicheSelection'
+import { useExamCart } from '../hooks/useExamCart'
+import { useCreateAppointmentOrder } from '../hooks/usePatientAppointments'
+import { useRegisterPatient } from '../hooks/usePatientProfile'
+import { DEFAULT_PATIENT_PROFILE } from '../data/patientProfile'
+import { ADMIN_SESSION_STORAGE_KEY } from '../constants/adminAccess'
 
 const LANDING_REGISTRATIONS_QUERY_KEY = ['landing', 'registered-profiles']
+const PENDING_ORDER_STORAGE_KEY = 'gms_return_to_exam_list'
+const PATIENT_AUTHENTICATED_STORAGE_KEY = 'gms_patient_authenticated'
 const LANDING_METRICS = [
   { label: 'Clínicas conectadas', value: '120+', icon: Building2, color: 'blue' },
   { label: 'Atendimentos organizados', value: '94%', icon: Activity, color: 'emerald' },
@@ -31,6 +42,17 @@ function LandingPage() {
   const navigate = useNavigate()
   const { activeNiche, setNiche, returnToNeutral } = useNicheSelection()
   const [isAuthOpen, setAuthOpen] = useState(false)
+  const [isAdminAuthOpen, setAdminAuthOpen] = useState(false)
+  const [isCartOpen, setCartOpen] = useState(false)
+  const [isReviewOpen, setReviewOpen] = useState(false)
+  const [draftExam, setDraftExam] = useState(null)
+  const [orderSummary, setOrderSummary] = useState(null)
+  const [requestError, setRequestError] = useState('')
+  const pendingOrderAfterAuth = useRef(false)
+  const queryClient = useQueryClient()
+  const orderMutation = useCreateAppointmentOrder()
+  const registerPatientMutation = useRegisterPatient()
+  const { items: cartItems, itemCount, addItem, updateItem, removeItem, clearCart } = useExamCart()
   const authAudience = activeNiche === 'CLINIC' ? 'clinic' : 'patient'
   const { data: registrations } = useQuery({
     queryKey: LANDING_REGISTRATIONS_QUERY_KEY,
@@ -49,24 +71,137 @@ function LandingPage() {
   }, [])
 
   const openAuth = useCallback(() => setAuthOpen(true), [])
-  const closeAuth = useCallback(() => setAuthOpen(false), [])
+  const handleAdminAccess = useCallback(() => setAdminAuthOpen(true), [])
+  const handleAdminAuthSuccess = useCallback(() => {
+    window.sessionStorage.setItem(ADMIN_SESSION_STORAGE_KEY, 'true')
+    setAdminAuthOpen(false)
+    navigate('/admin/clinicas')
+  }, [navigate])
+  const closeAuth = useCallback(() => {
+    setAuthOpen(false)
+    const shouldReturnToExamList = pendingOrderAfterAuth.current ||
+      window.sessionStorage.getItem(PENDING_ORDER_STORAGE_KEY) === 'true'
+    if (!shouldReturnToExamList) return
+    pendingOrderAfterAuth.current = false
+    window.sessionStorage.removeItem(PENDING_ORDER_STORAGE_KEY)
+    setCartOpen(true)
+  }, [])
+
+  const beginExamRequest = useCallback((item) => {
+    setRequestError('')
+    setDraftExam(item)
+    setCartOpen(true)
+  }, [])
+
+  const updateDraftExam = useCallback((_, updates) => {
+    setDraftExam((current) => current ? { ...current, ...updates } : current)
+  }, [])
+
+  const closeExamList = useCallback(() => {
+    setCartOpen(false)
+    setDraftExam(null)
+  }, [])
 
   const goToSignup = useCallback(() => {
+    if (pendingOrderAfterAuth.current) window.sessionStorage.setItem(PENDING_ORDER_STORAGE_KEY, 'true')
     setAuthOpen(false)
     navigate(authAudience === 'clinic' ? '/cadastro-clinica' : '/cadastro-paciente')
   }, [authAudience, navigate])
 
-  const handleAuthSubmit = useCallback(
-    ({ email }) => {
+  const submitOrder = useCallback(async (patient, { navigateToWelcome = false } = {}) => {
+    setRequestError('')
+    try {
+      const order = await orderMutation.mutateAsync({ items: cartItems, patient })
+      await clearCart()
+      setCartOpen(false)
       setAuthOpen(false)
-      if (authAudience === 'clinic') {
-        navigate('/dashboard')
-        return
+      if (navigateToWelcome) {
+        navigate('/paciente/inicio', {
+          state: {
+            email: patient.email,
+            name: patient.fullName,
+            welcomeMessage: 'Cadastro e solicitação concluídos com sucesso. Acompanhe seus exames nesta área.',
+          },
+        })
+      } else {
+        setOrderSummary(order)
       }
-      navigate('/paciente/inicio', { state: { email: email.trim() } })
-    },
-    [authAudience, navigate]
-  )
+      window.sessionStorage.removeItem(PENDING_ORDER_STORAGE_KEY)
+      pendingOrderAfterAuth.current = false
+    } catch (error) {
+      setRequestError(error.message || 'Não foi possível registrar os agendamentos. Revise os itens e tente novamente.')
+      setCartOpen(true)
+      setAuthOpen(false)
+      window.sessionStorage.removeItem(PENDING_ORDER_STORAGE_KEY)
+      pendingOrderAfterAuth.current = false
+    }
+  }, [cartItems, clearCart, navigate, orderMutation])
+
+  const handleRequestAppointments = useCallback(() => {
+    setRequestError('')
+    if (window.sessionStorage.getItem(PATIENT_AUTHENTICATED_STORAGE_KEY) === 'true' && registrations?.patient) {
+      submitOrder(registrations.patient)
+      return
+    }
+    pendingOrderAfterAuth.current = true
+    window.sessionStorage.setItem(PENDING_ORDER_STORAGE_KEY, 'true')
+    setCartOpen(false)
+    setAuthOpen(true)
+  }, [registrations, submitOrder])
+
+  const openRequestReview = useCallback(() => {
+    setCartOpen(false)
+    setReviewOpen(true)
+  }, [])
+
+  const confirmRequestReview = useCallback(() => {
+    setReviewOpen(false)
+    handleRequestAppointments()
+  }, [handleRequestAppointments])
+
+  const handleAuthSubmit = useCallback(async ({ email }) => {
+    if (authAudience === 'clinic') {
+      setAuthOpen(false)
+      navigate('/dashboard')
+      return
+    }
+
+    const savedPatient = await registerPatientMutation.mutateAsync({
+      ...DEFAULT_PATIENT_PROFILE,
+      email: email.trim(),
+    })
+    window.sessionStorage.setItem(PATIENT_AUTHENTICATED_STORAGE_KEY, 'true')
+    queryClient.setQueryData(LANDING_REGISTRATIONS_QUERY_KEY, (current) => ({
+      ...current,
+      patient: savedPatient,
+    }))
+    if (pendingOrderAfterAuth.current || window.sessionStorage.getItem(PENDING_ORDER_STORAGE_KEY) === 'true') {
+      window.sessionStorage.removeItem(PENDING_ORDER_STORAGE_KEY)
+      pendingOrderAfterAuth.current = false
+      setNiche('PATIENT')
+      setAuthOpen(false)
+      await submitOrder(savedPatient, { navigateToWelcome: true })
+      return
+    }
+    setAuthOpen(false)
+    navigate('/paciente/inicio', { state: { email: email.trim() } })
+  }, [authAudience, navigate, queryClient, registerPatientMutation, setNiche, submitOrder])
+
+  useEffect(() => {
+    const shouldResumeOrder = window.sessionStorage.getItem(PENDING_ORDER_STORAGE_KEY) === 'true'
+    if (!shouldResumeOrder || !registrations?.patient || cartItems.length === 0) return
+    setNiche('PATIENT')
+    setAuthOpen(false)
+    if (window.sessionStorage.getItem(PATIENT_AUTHENTICATED_STORAGE_KEY) === 'true') {
+      window.sessionStorage.removeItem(PENDING_ORDER_STORAGE_KEY)
+      pendingOrderAfterAuth.current = false
+      submitOrder(registrations.patient, { navigateToWelcome: true })
+      return
+    }
+    window.sessionStorage.removeItem(PENDING_ORDER_STORAGE_KEY)
+    pendingOrderAfterAuth.current = false
+    setCartOpen(true)
+  }, [cartItems.length, registrations, setNiche, submitOrder])
 
   const headerLinks = activeNiche === 'PATIENT'
     ? [
@@ -105,6 +240,24 @@ function LandingPage() {
               </nav>
             )}
             {activeNiche !== 'NONE' && <NicheSegmentedControl value={activeNiche} onChange={setNiche} />}
+            {activeNiche === 'PATIENT' && (
+              <button
+                type="button"
+                onClick={() => {
+                  setDraftExam(null)
+                  setCartOpen(true)
+                }}
+                aria-label={`Abrir lista de exames: ${itemCount} ${itemCount === 1 ? 'exame' : 'exames'}`}
+                aria-expanded={isCartOpen}
+                className="relative inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+              >
+                <ListChecks className={`h-4 w-4 ${itemCount > 0 ? 'text-red-600' : 'text-slate-500'}`} aria-hidden="true" />
+                <span className="hidden sm:inline">Lista de exames</span>
+                <span className={`inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-bold leading-none text-white ${itemCount > 0 ? 'bg-red-600' : 'bg-slate-400'}`}>
+                  {itemCount}
+                </span>
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -146,7 +299,11 @@ function LandingPage() {
         </>
       )}
       {activeNiche === 'PATIENT' && (
-        <PatientNicheView onOpenAuth={openAuth} onGoToSignup={() => navigate('/cadastro-paciente')} />
+        <PatientNicheView
+          onOpenAuth={openAuth}
+          onGoToSignup={() => navigate('/cadastro-paciente')}
+          onAddToCart={beginExamRequest}
+        />
       )}
       {activeNiche === 'CLINIC' && (
         <ClinicNicheView onOpenAuth={openAuth} onGoToSignup={() => navigate('/cadastro-clinica')} />
@@ -193,6 +350,7 @@ function LandingPage() {
                 ))}
                 {activeNiche === 'PATIENT' && <li><button type="button" onClick={() => navigate('/cadastro-paciente')} className="font-medium text-emerald-300 transition hover:text-emerald-400">Cadastre-se</button></li>}
                 {activeNiche === 'CLINIC' && <li><button type="button" onClick={() => navigate('/cadastro-clinica')} className="font-medium text-emerald-300 transition hover:text-emerald-400">Credenciar Minha Clínica</button></li>}
+                <li><button type="button" onClick={handleAdminAccess} className="transition hover:text-emerald-400">Acesso administrativo</button></li>
               </ul>
             </div>
 
@@ -222,10 +380,37 @@ function LandingPage() {
         <AuthModal
           audience={authAudience}
           onClose={closeAuth}
-          onSubmit={handleAuthSubmit}
+          onSuccess={handleAuthSubmit}
           onGoToSignup={goToSignup}
         />
       )}
+      {isAdminAuthOpen && <AdminAccessModal onClose={() => setAdminAuthOpen(false)} onSuccess={handleAdminAuthSuccess} />}
+      {activeNiche === 'PATIENT' && (
+        <ExamCartDrawer
+          items={cartItems}
+          draftItem={draftExam}
+          isOpen={isCartOpen}
+          onClose={draftExam?.cartItemId ? () => setDraftExam(null) : closeExamList}
+          onAddDraft={(item) => item.cartItemId ? updateItem(item.cartItemId, item) : addItem(item)}
+          onDraftAdded={() => {
+            if (draftExam?.cartItemId) setDraftExam(null)
+            else closeExamList()
+          }}
+          onUpdateDraft={updateDraftExam}
+          onEditItem={(item) => setDraftExam(item)}
+          onRemoveItem={removeItem}
+          onUpdateItem={updateItem}
+          onClearCart={async () => {
+            await clearCart()
+            setCartOpen(false)
+          }}
+          onRequestAppointments={openRequestReview}
+          isSubmitting={orderMutation.isPending}
+          requestError={requestError}
+        />
+      )}
+      {isReviewOpen && <ExamRequestReviewModal items={cartItems} onClose={() => { setReviewOpen(false); setCartOpen(true) }} onConfirm={confirmRequestReview} />}
+      {orderSummary && <OrderSummaryModal order={orderSummary} onClose={() => setOrderSummary(null)} />}
     </div>
   )
 }
