@@ -41,3 +41,33 @@ Como estamos focando em **Lauro de Freitas**, um ponto de falha comum que precis
 4.  **Localização (Latitude/Longitude):** Para o mercado de Lauro de Freitas, onde o trânsito na Estrada do Coco é um fator decisivo, a geolocalização deve ser precisa para que o paciente escolha a clínica mais acessível ao seu trajeto.
 
 **Podemos seguir com a criação do componente de "Formulário de Cadastro de Serviço" utilizando estes campos, ou prefere que eu gere primeiro a lista de convênios mestre (insurances.js) para popular o sistema?**
+
+---
+
+### 5. Mapeamento atual da vitrine para o carrinho (SPEC-06)
+
+No fluxo web mock, os cards da vitrine continuam usando `STANDARD_PROCEDURES_CATALOG` (`src/data/standardCatalog.js`). Para adicionar um item ao carrinho, `PatientNicheView.jsx` localiza uma oferta clínica correspondente em `MOCK_SERVICES_CATALOG` (`src/data/catalogData.js`), primeiro por código TUSS e depois por nome. Sem oferta associada, a ação fica indisponível; não é criado vínculo fictício.
+
+| Campo do carrinho | Origem mock |
+| --- | --- |
+| `examId`, `examName`, `category`, `tussCode` | `id`, `name`, `category`, `tussCode` do catálogo padrão; categorias são convertidas para `LAB`, `IMG`, `CARDIO`, `CONSULT` ou `OUTROS`. |
+| `privatePrice`, `descriptionPrep`, `insuranceIds` | Valor, preparo e convênios da oferta clínica correspondente em `MOCK_SERVICES_CATALOG`; os IDs legados sem prefixo são convertidos para o formato oficial `ins-*`. |
+| `clinicId`, `clinicName`, `clinicAddress`, `clinicNeighborhood`, `clinicRating`, `serviceId` | Oferta correspondente no catálogo mock, incluindo dados da clínica associada. |
+| `selectedDate`, `selectedTimeSlot`, `selectedPeriod`, `paymentType`, `selectedInsuranceId` | Date/time and period-filter snapshot per list item; payment initializes to an option offered by the clinic, using the selected landing filter when applicable. |
+
+Os horários selecionáveis são fixtures por clínica em `src/data/clinicAvailability.js`, limitados aos dias ativos de `DEFAULT_OPERATING_DAYS` em `src/data/clinicProfileData.js`. A interface publica apenas os slots listados para os próximos 30 dias; horários anteriores ao momento atual não aparecem para a data de hoje. Essa fixture prepara o contrato e a UX, sem representar reserva concorrente nem integração de agenda em banco.
+
+### 6. Busca local de localização e ordenação (SPEC-06, Etapa 5)
+
+`src/data/locationCatalog.js` mantém as regiões mock usadas pelo `LocationSearchInput.jsx`: Centro e Vilas do Atlântico, Estrada do Coco, Pituba e Centro de Salvador. As coordenadas são aproximadas e servem somente para ordenar demonstrações pela distância de Haversine; não são geocodificação de endereços reais. A interface começa no Centro de Lauro de Freitas e permite escolher regiões reconhecidas pela lista local. Entradas arbitrárias de endereço e CEP ainda não podem ser convertidas em coordenadas; essa substituição está registrada no TODO do catálogo e na SPEC-06. Em distância equivalente até 1 metro, prevalece a maior avaliação (`rating`).
+
+### 7. Pedido de agendamento em lote (SPEC-06, Etapa 6)
+
+`createAppointmentOrder` in `src/services/appointmentService.js` revalidates the clinic offer, date, time, and payment option against the service offering (without filtering by the patient profile, because requests may be for third parties), then creates a shared `orderId`. Each appointment is stored with status `SOLICITADO`; `usePatientAppointments` filters by patient and `PatientRecentOrdersCard.jsx` groups by order. `OrderSummaryModal.jsx` totals only private payments and groups preparation notes. Mock clinics are active/approved for this demonstration; availability does not prevent concurrent reservations.
+
+
+### 8. Filtros e lista de exames (SPEC-06)
+
+O filtro de convenio e as opcoes de pagamento usam a oferta em `MOCK_SERVICES_CATALOG.insurances`, convertida para IDs oficiais `ins-*`. O catalogo padrao nao deve anunciar cobertura que nao esteja na oferta mock associada da clinica. Nesta fase, a lista pode ser usada para solicitar exames para terceiros; o perfil de convenios do paciente nao restringe quais ofertas aparecem. Elegibilidade do beneficiario sera validada pela API/backend em EVOL-002.
+
+O periodo e filtrado na landing: `MANHA` (00:00-11:59), `TARDE` (12:00-17:59) e `NOITE` (18:00-23:59). A escolha acompanha cada item e restringe os slots no painel. O card abre a configuracao lateral do exame; `Adicionar Exame` salva o item, mostra estados de carregamento e sucesso e fecha o painel. Apos login/cadastro mock, a lista em `sessionStorage` retorna aberta na landing para revisao e confirmacao explicita; autenticar nao submete o pedido.

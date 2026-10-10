@@ -1,4 +1,4 @@
-import { Search, X, RotateCcw } from 'lucide-react'
+import { Search, X, RotateCcw, Clock3 } from 'lucide-react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faCreditCard } from '@fortawesome/free-solid-svg-icons'
 import { FilterButtonGroup } from './FilterButtonGroup'
@@ -13,6 +13,9 @@ export function CatalogFilters({
   insuranceOptions,
   selectedInsurance,
   onInsuranceChange,
+  periodOptions,
+  selectedPeriod,
+  onPeriodChange,
   baseMinPrice,
   baseMaxPrice,
   minPrice,
@@ -77,6 +80,14 @@ export function CatalogFilters({
           onChange={onCategoryChange}
         />
       </div>
+
+      <FilterButtonGroup
+        label="Período disponível:"
+        icon={<Clock3 className="h-3.5 w-3.5" />}
+        options={periodOptions}
+        selectedValue={selectedPeriod}
+        onChange={onPeriodChange}
+      />
 
       {/* Grade com Convênio (Pills) e Faixa de Preço (Slider Duplo + Inputs) */}
       <div className="grid gap-4 lg:grid-cols-12 lg:items-start">

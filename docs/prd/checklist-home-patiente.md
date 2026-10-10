@@ -1,19 +1,20 @@
 ### Checklist - Credenciamento do Paciente, Agendamento Web e Evolução Mobile
 Base de comparação: docs/checklist-landing-page.md, SPEC-06, SPEC-07 e requisitos de negócio B2B2C.
+Roadmap transversal de evolução: `docs/prd/roadmap-evolucao.md` (itens EVOL-001 a EVOL-005; geocodificação em EVOL-002, Google Auth e WhatsApp em EVOL-005).
 **Escopo desta fase:** Front-end visual + Mock Data + Reaproveitamento de componentes e utilitários.
 **Fora de escopo agora:** Banco de dados PostgreSQL, fetch/axios real, integração com API Spring Boot, persistência de token backend.
-**Última revisão:** Incorporação da SPEC-06 (Carrinho de Exames / Multi-Agendamento, Resumo Consolidado `OrderSummaryModal` e Busca Geolocalizada para Terceiros `LocationSearchInput`) e SPEC-07 (Google Auth e Integração WhatsApp).
+**Última revisão:** 2026-10-10 — SPEC-06 concluída para fluxo web mock (lista de exames, localização local, submissão em lote, resumo e consulta do paciente); integrações externas Google Auth e WhatsApp adiadas para EVOL-005.
 
 --------------------------------------------------------------------------------
 
 #### Visão do fluxo de entrada e agendamento do paciente
 ```text
 Landing neutra (/) ──► Visão Paciente ──► Vitrine / localização (SPEC-06)
-       [ ]                    [ ]                    [ ]
+       [x]                    [x]                    [x]
                                                        │
                                                        ▼
 Área do paciente ◄── OrderSummaryModal ◄── Carrinho / agendamento no site
-    [x]                    [ ]                           [ ]
+    [x]                    [x]                           [x]
                                                        │
                                                        ▼
                                       Experiência equivalente no App Mobile (etapa futura)
@@ -29,35 +30,37 @@ Landing neutra (/) ──► Visão Paciente ──► Vitrine / localização (
 *  [x] **Componente Toast:** Sistema de notificações flutuantes.
 *  [x] **Wizard de Cadastro do Paciente (/cadastro-paciente):** 3 etapas com validação de CPF (DV), idade mínima (18+), e-mail/senha com `PasswordInput.jsx` e suporte a convênios em pills.
 *  [x] **Título do cadastro:** A finalidade da página é informada diretamente pelo título, sem etiqueta/eyebrow decorativo acima dele.
-*  [x] **Página de Boas-Vindas (/paciente/inicio):** Perfil read-only, banner unificado `ClinicActionBanner` e CTAs App Store / Google Play.
+*  [x] **Página do Paciente (/paciente/inicio):** Perfil read-only, banner unificado `ClinicActionBanner`, pedidos recentes do fluxo web SPEC-06 e CTAs App Store / Google Play.
 
 --------------------------------------------------------------------------------
 
 #### 2) Agendamento Web: Carrinho de Exames, Resumo Consolidado e Busca para Terceiros (SPEC-06)
 **Decisão:** o primeiro fluxo de carrinho e solicitação de agendamentos será concluído no site. A integração equivalente ao App Mobile ocorrerá depois e não é pré-requisito para o fluxo web.
 ##### 2.1 Carrinho de Exames — Multi-Agendamento (`useExamCart.js` / `cartStore.js`)
-*  [ ] **Inclusão de Múltiplos Exames:** O paciente navega pela vitrine e adiciona N exames ao seu **Carrinho de Exames** com atualização instantânea do contador no cabeçalho.
-*  [ ] **Painel Lateral do Carrinho (`ExamCartDrawer.jsx`):** Gaveta lateral para visualização e gerenciamento do lote de exames.
-*  [ ] **Componente Individual por Exame (`ExamCartItem.jsx`):**
-    - Seletor de **Data Desejada** por exame.
-    - Seletor de **Período Preferencial** em pills (`MANHA`, `TARDE`, `NOITE`).
-    - Modalidade de Pagamento: seleção entre "Particular" (exibe valor em R$) ou "Convênio" (filtra apenas os convênios aceitos pelo procedimento).
-    - Exibição destacada das **Orientações de Preparo (`descriptionPrep`)** (ex: "Jejum de 8h").
+*  [x] **Inclusão de Múltiplos Exames:** Cada card abre a configuração pela ação "Solicitar agendamento". O botão "Adicionar Exame" confirma a inclusão, atualiza o contador vermelho e retorna à vitrine.
+*  [x] **Painel da Lista de Exames (`ExamCartDrawer.jsx`):** O ícone com contador acumulado abre a lista para revisar os exames, concluir a solicitação e remover itens. A ação "Concluir solicitação" abre `ExamRequestReviewModal.jsx`; o acesso/cadastro preserva a lista, que só é limpa após submissão mock bem-sucedida. A lateral apresenta resumo com edição; salvar atualiza o item existente. A revisão final precede o login/cadastro, que mantém a lista até o envio bem-sucedido.
+*  [x] **Componente Individual por Exame (`ExamCartItem.jsx`):**
+    - Seletor de **Data e horário disponíveis** do exame antes de adicioná-lo à lista.
+    - Filtro de **Período** na landing (`MANHA`, `TARDE`, `NOITE`); cada item recebe somente data e horário do período escolhido.
+    - Modalidade de Pagamento: seleção entre Particular e convênios efetivamente oferecidos pela clínica para o serviço; elegibilidade do beneficiário será validada pela futura API.
+    - Exibição destacada das **Orientações de Preparo (`descriptionPrep`)**.
+    - O botão "Adicionar Exame" exibe carregamento e confirmação de salvo; após salvar, fecha a lateral e retorna à landing.
+*  [x] Após login ou cadastro iniciado na revisão final, submeter os exames preservados e direcionar à área do paciente; a lista só é limpa após envio bem-sucedido.
 
 ##### 2.2 Busca Geolocalizada para Terceiros (`LocationSearchInput.jsx`)
-*  [ ] **Seleção Manual de Endereço/Bairro:** O paciente pode alterar a localização de referência na busca de exames para agendar atendimentos para parentes ou terceiros em outras regiões (ex: agendar em Vilas do Atlântico / Lauro de Freitas estando em Salvador).
-*  [ ] **Reordenação Dinâmica:** Reordena as clínicas e exames disponíveis com base no endereço informado para o beneficiário.
+*  [x] **Seleção Manual de Região de Referência (mock):** O paciente escolhe entre as regiões locais disponíveis em `LocationSearchInput.jsx`; coordenadas aproximadas ficam em `src/data/locationCatalog.js`. Geocodificação de endereço/CEP arbitrário permanece futura conforme SPEC-06.
+*  [x] **Reordenação Dinâmica (mock):** Reordena clínicas e exames por distância de Haversine e desempata por maior avaliação da clínica.
 
 ##### 2.3 Resumo Consolidado (`OrderSummaryModal.jsx`)
-*  [ ] **Tabela Resumo do Lote:** Exibe a lista completa de exames agendados, clínicas responsáveis, datas e horários.
-*  [ ] **Guia Unificado de Preparo:** Consolidação das orientações de atendimento de todos os exames do carrinho para o dia do procedimento.
-*  [ ] **Envio em Lote:** Disparo dos agendamentos via `appointmentService.js` com status inicial `SOLICITADO`.
+*  [x] **Tabela Resumo do Lote:** `OrderSummaryModal.jsx` exibe exames agendados, clínicas responsáveis, datas, horários e valores; soma somente itens particulares.
+*  [x] **Guia Unificado de Preparo:** O resumo consolida as orientações de preparo sem duplicar textos iguais.
+*  [x] **Envio em Lote:** `appointmentService.js` cria um `orderId`, persiste todos os agendamentos mock em lote com status inicial `SOLICITADO` e valida seleção/disponibilidade.
 
 --------------------------------------------------------------------------------
 
 #### 3) Canais Digitais e Autenticação (SPEC-07)
-*  [ ] **Google Auth (`AuthModal.jsx`):** Inclusão do botão funcional **"Entrar com o Google"** no modal de acesso do paciente para acelerar o cadastro e login.
-*  [ ] **Notificações via WhatsApp:** Suporte ao envio de lembretes, orientações de preparo e boletos/chaves PIX via WhatsApp diretamente pelos cards de agendamento.
+*  [ ] **Google Auth (`AuthModal.jsx`, EVOL-005):** Integração OAuth/OIDC futura, dependente de configuração de provedor e validação segura de tokens.
+*  [ ] **Notificações via WhatsApp (EVOL-005):** Integração futura via WhatsApp Business Platform ou provedor oficial, dependente de credenciais, templates e webhooks.
 
 --------------------------------------------------------------------------------
 
@@ -66,8 +69,10 @@ Landing neutra (/) ──► Visão Paciente ──► Vitrine / localização (
 | ------ | ------ | ------ |
 | **Wizard de Cadastro Paciente** | **Concluído** | `src/pages/PatientSignupPage.jsx` |
 | **Página Boas-Vindas / Perfil** | **Concluído** | `src/pages/PatientWelcomePage.jsx` |
-| **Carrinho de Exames (`useExamCart`)** | **Em Implementação (`SPEC-06`)** | `src/hooks/useExamCart.js` / `ExamCartDrawer.jsx` |
-| **Item do Carrinho (`ExamCartItem`)** | **Em Implementação (`SPEC-06`)** | `src/components/patient/ExamCartItem.jsx` |
-| **Busca para Terceiros (`LocationSearchInput`)** | **Em Implementação (`SPEC-06`)** | `src/components/patient/LocationSearchInput.jsx` |
-| **Resumo Consolidado (`OrderSummaryModal`)** | **Em Implementação (`SPEC-06`)** | `src/components/patient/OrderSummaryModal.jsx` |
-| **Google Auth (`AuthModal`)** | **Em Implementação (`SPEC-07`)** | `src/components/landing/AuthModal.jsx` |
+| **Carrinho de Exames (`useExamCart`)** | **Concluído (SPEC-06 web mock)** | `src/hooks/useExamCart.js` / `src/components/patient/ExamCartDrawer.jsx` |
+| **Item do Carrinho (`ExamCartItem`)** | **Concluído (SPEC-06 web mock)** | `src/components/patient/ExamCartItem.jsx` |
+| **Busca para Terceiros (`LocationSearchInput`)** | **Concluído (mock; API futura EVOL-002)** | `src/components/patient/LocationSearchInput.jsx` / `src/data/locationCatalog.js` |
+| **Revisão e Resumo de Pedidos** | **Concluído (SPEC-06 web mock)** | `src/components/patient/ExamRequestReviewModal.jsx` / `src/components/patient/OrderSummaryModal.jsx` / `src/components/patient/PatientRecentOrdersCard.jsx` |
+| **Consulta de Pedidos (`usePatientAppointments`)** | **Concluído (SPEC-06 web mock)** | `src/hooks/usePatientAppointments.js` / `src/pages/PatientWelcomePage.jsx` |
+| **Google Auth (`AuthModal`)** | **Futuro (EVOL-005; integração externa)** | `src/components/landing/AuthModal.jsx` |
+| **Notificações via WhatsApp** | **Futuro (EVOL-005; integração externa)** | Roadmap de evolução |

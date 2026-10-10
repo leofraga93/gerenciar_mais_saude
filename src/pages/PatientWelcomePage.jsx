@@ -9,9 +9,11 @@ import {
   User,
 } from 'lucide-react'
 import ClinicActionBanner from '../components/clinic/ClinicActionBanner'
+import PatientRecentOrdersCard from '../components/patient/PatientRecentOrdersCard'
 import Toast from '../components/common/Toast'
 import { getInsuranceNames } from '../data/insurances'
 import { useLogoutPatient, usePatientProfile } from '../hooks/usePatientProfile'
+import { usePatientAppointments } from '../hooks/usePatientAppointments'
 import { maskCpf } from '../utils/patientSignupValidation'
 
 function getInitials(name) {
@@ -29,6 +31,7 @@ function PatientWelcomePage() {
   const location = useLocation()
   const navigate = useNavigate()
   const { data: patient } = usePatientProfile()
+  const { data: appointments = [] } = usePatientAppointments(patient?.id)
   const logoutMutation = useLogoutPatient()
 
   const initialAlert = location.state?.alert
@@ -93,7 +96,7 @@ function PatientWelcomePage() {
           type="success"
           badge="Credenciamento Realizado com Sucesso"
           title={fullName ? `Bem-vindo, ${fullName}!` : 'Credenciamento concluído!'}
-          description="Passo 1 concluído! Seu perfil de paciente foi criado com sucesso. Agora, baixe nosso aplicativo no seu celular para buscar clínicas credenciadas, escolher especialistas e agendar consultas com desconto."
+          description="Seu perfil de paciente está pronto. Você pode solicitar exames pelo site e acompanhar seus agendamentos nesta área; o aplicativo mobile será disponibilizado em uma etapa futura."
           actions={
             <>
               <button
@@ -133,10 +136,9 @@ function PatientWelcomePage() {
           <span className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-emerald-800">
             Convênios Vinculados: <strong>{insuranceNames.length > 0 ? insuranceNames.length : 1}</strong>
           </span>
-          <span className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-amber-800">
-            Agendamentos: <strong>Exclusivo no App Mobile</strong>
-          </span>
         </div>
+
+        <PatientRecentOrdersCard appointments={appointments} />
 
         {/* Grid de Informações Cadastrais e Ponte Mobile */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -208,7 +210,7 @@ function PatientWelcomePage() {
 
               <div className="mt-4 space-y-3 text-xs text-slate-600 leading-relaxed">
                 <p>
-                  O agendamento com geolocalização e escolha de horários em Lauro de Freitas e Região acontece <strong>exclusivamente pelo aplicativo</strong>.
+                  O site já permite solicitar exames e acompanhar os pedidos. O aplicativo mobile será uma opção adicional em etapa futura.
                 </p>
                 <ul className="space-y-2 text-slate-700">
                   <li className="flex items-start gap-2">
