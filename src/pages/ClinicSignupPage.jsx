@@ -17,7 +17,7 @@ const STEPS = [
     id: 1,
     title: 'Dados da empresa',
     description: 'Identificação jurídica da clínica na plataforma.',
-    firstField: 'tradeName',
+    firstField: 'legalName',
   },
   {
     id: 2,
@@ -40,6 +40,7 @@ const STEPS = [
 ]
 
 const INITIAL_FORM = {
+  legalName: '',
   tradeName: '',
   cnpj: '',
   email: '',
@@ -218,6 +219,7 @@ function ClinicSignupPage() {
     setStepError('')
     try {
       const clinic = await registerClinic({
+        legalName: form.legalName.trim(),
         tradeName: form.tradeName.trim(),
         cnpj: digitsOnly(form.cnpj),
         email: form.email.trim(),
@@ -281,26 +283,38 @@ function ClinicSignupPage() {
           >
             {step === 1 && (
               <>
-                <Field
-                  label="Razão social ou nome fantasia"
-                  htmlFor="tradeName"
-                  required
-                  error={errors.tradeName}
-                >
-                  <input
-                    id="tradeName"
-                    name="tradeName"
-                    type="text"
-                    autoComplete="organization"
-                    value={form.tradeName}
-                    onChange={(e) => updateField('tradeName', e.target.value)}
-                    onBlur={() => handleFieldBlur('tradeName')}
-                    aria-invalid={Boolean(errors.tradeName)}
-                    aria-describedby={errors.tradeName ? 'tradeName-error' : undefined}
-                    className={inputClassName(Boolean(errors.tradeName))}
-                    placeholder="Ex.: Clínica Vida Plena"
-                  />
-                </Field>
+                <Field label="Razão Social" htmlFor="legalName" required error={errors.legalName}>
+  <input
+    id="legalName"
+    name="legalName"
+    type="text"
+    autoComplete="organization"
+    maxLength={200}
+    value={form.legalName}
+    onChange={(e) => updateField('legalName', e.target.value)}
+    onBlur={() => handleFieldBlur('legalName')}
+    aria-invalid={Boolean(errors.legalName)}
+    aria-describedby={errors.legalName ? 'legalName-error' : undefined}
+    className={inputClassName(Boolean(errors.legalName))}
+    placeholder="Ex.: Laboratório Vida Plena Ltda."
+  />
+</Field>
+<Field label="Nome Fantasia" htmlFor="tradeName" required error={errors.tradeName} hint="Este nome será exibido aos pacientes.">
+  <input
+    id="tradeName"
+    name="tradeName"
+    type="text"
+    autoComplete="organization"
+    maxLength={200}
+    value={form.tradeName}
+    onChange={(e) => updateField('tradeName', e.target.value)}
+    onBlur={() => handleFieldBlur('tradeName')}
+    aria-invalid={Boolean(errors.tradeName)}
+    aria-describedby={errors.tradeName ? 'tradeName-error' : undefined}
+    className={inputClassName(Boolean(errors.tradeName))}
+    placeholder="Ex.: Clínica Vida Plena"
+  />
+</Field>
                 <Field label="CNPJ" htmlFor="cnpj" required error={errors.cnpj}>
                   <input
                     id="cnpj"
@@ -448,9 +462,13 @@ function ClinicSignupPage() {
                   <h2 className="font-semibold text-slate-900">Resumo do credenciamento</h2>
                   <dl className="mt-3 space-y-2">
                     <div className="flex justify-between gap-4">
-                      <dt className="text-slate-500">Empresa</dt>
-                      <dd className="font-medium text-right">{form.tradeName.trim() || '—'}</dd>
-                    </div>
+  <dt className="text-slate-500">Razão Social</dt>
+  <dd className="font-medium text-right">{form.legalName.trim() || '—'}</dd>
+</div>
+<div className="flex justify-between gap-4">
+  <dt className="text-slate-500">Nome Fantasia</dt>
+  <dd className="font-medium text-right">{form.tradeName.trim() || '—'}</dd>
+</div>
                     <div className="flex justify-between gap-4">
                       <dt className="text-slate-500">CNPJ</dt>
                       <dd className="font-medium text-right">{form.cnpj || '—'}</dd>

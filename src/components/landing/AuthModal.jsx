@@ -4,7 +4,7 @@ import FormField from '../common/FormField'
 import PasswordInput from '../common/PasswordInput'
 import { inputClassName } from '../../utils/formUtils'
 
-function AuthModal({ audience, onClose, onSubmit, onGoToSignup }) {
+function AuthModal({ audience, onClose, onSubmit, onSuccess, onGoToSignup }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [errors, setErrors] = useState({})
@@ -46,7 +46,8 @@ function AuthModal({ audience, onClose, onSubmit, onGoToSignup }) {
       return
     }
 
-    onSubmit({ email: email.trim(), password })
+    const handleSuccess = onSuccess || onSubmit
+    handleSuccess({ email: email.trim(), password })
   }
 
   return (

@@ -12,7 +12,7 @@
 | Aspecto | Como está Hoje (`src/pages/ClinicSignupPage.jsx` / `checklist-home-clinicle.md`) | O que será Ajustado (SPEC-05) |
 | :--- | :--- | :--- |
 | **Identificação Jurídica** | Possui campo único de "Razão Social / Nome da Clínica". | **Separação Explícita**: Exige obrigatoriamente os campos distintos de **Razão Social** (Nome jurídico formal) e **Nome Fantasia** (Nome comercial exibido aos pacientes na vitrine). |
-| **Campos do Credenciamento** | Formulário estruturado em etapas contendo CNPJ, e-mail, senha, responsável, telefone, endereço com geolocalização e fotos. | **Preservação Integral**: Todos os campos cadastrais originais são **mantidos em 100%**, garantindo que nenhuma informação técnica ou de contato seja perdida no fluxo. |
+| **Campos do Credenciamento** | O wizard mantém sua estrutura atual; fotos ficam no perfil. | **Alteração desta SPEC**: separar Razão Social e Nome Fantasia, sem mover endereço, coordenadas ou galeria para o wizard. |
 | **Status Pós-Credenciamento** | A clínica se cadastra e fica imediatamente ativa e disponível para visualização pública. | **Trava de Moderação Administrativa (`PENDENTE_APROVACAO_ADMIN`)**: Ao concluir o credenciamento e o catálogo de exames, o perfil da clínica entra no status de moderação. |
 | **Visibilidade na Vitrine** | A clínica aparece imediatamente nos resultados de busca do aplicativo e site. | **Bloqueio de Vitrine**: A clínica **NÃO é exibida** na busca pública de exames até que o administrador da plataforma (desenvolvedor/gestor do app) altere seu status para `APROVADO`. |
 | **Acesso ao Portal da Clínica** | Permite navegação completa no `/dashboard`. | **Navegação Restrita com Banner Explicativo**: A clínica acessa o portal (`/dashboard`), visualiza suas telas e cadastra seus exames, mas um banner informativo permanente alerta que a publicação pública depende de aprovação admin. |
@@ -21,7 +21,7 @@
 
 #### 1. Contexto, Rota e Arquivos Alvo
 
-* **Objetivo da Tarefa**: Implementar a separação explícita entre **Razão Social** e **Nome Fantasia** no formulário de credenciamento B2B, preservando a totalidade dos dados cadastrais já previstos, e aplicar a camada de **Moderação Administrativa à Parte** (`PENDENTE_APROVACAO_ADMIN`), que impede a publicação da clínica na busca pública antes da aprovação manual pelo administrador da plataforma.
+* **Objetivo da Tarefa**: Separar Razão Social e Nome Fantasia no wizard vigente, registrar clínicas para moderação mock e controlar sua publicação pública por status; endereço/coordenadas e fotos mantêm as áreas e comportamentos atuais.
 * **Rota(s) da Aplicação**: 
   * `/cadastro-clinica` (Wizard público de credenciamento B2B).
   * `/dashboard/*` (Portal administrativo da clínica logada).
@@ -51,8 +51,8 @@
 | **3. Contato** | **Nome do Responsável** | Sim | Nome completo (mínimo 2 palavras: Nome + Sobrenome), apenas letras e espaços. |
 | **3. Contato** | **Telefone / WhatsApp** | Sim | DDD válido (Brasil) + telefone fixo (10 dígitos) ou celular (11 dígitos), com máscara `(00) 00000-0000`. |
 | **3. Contato** | **Código de Indicação** | Opcional | 4 a 30 caracteres alfanuméricos + hífen. |
-| **4. Local & Fotos**| **Endereço Completo** | Sim | Logradouro, número, bairro, cidade (foco Lauro de Freitas/RMS), CEP e coordenadas de geolocalização para o mapa. |
-| **4. Local & Fotos**| **Galeria de Fotos** | Sim | Mínimo 1 foto em formato Base64 (Fachada/Capa, Recepção ou Instalações). |
+| **Perfil** | **Endereço e coordenadas** | Conforme fluxo vigente | Manter comportamento atual; não adicionar novas exigências ao wizard nesta SPEC. |
+| **Perfil** | **Galeria de Fotos** | Conforme perfil vigente | Gerenciar em `/dashboard/perfil`; não mover para o wizard. |
 | **4. Aceite** | **Termos & LGPD** | Sim | Checkbox obrigatório de consentimento. |
 
 ##### 2.2 Fluxo de Moderação e Ciclo de Vida da Aprovação
@@ -84,7 +84,7 @@ Permitido (com banner de alerta)   BLOQUEADO (Invisível na vitrine)
      *"Cadastro em análise: Sua clínica e catálogo de exames estão sob verificação da administração da plataforma. Os exames ficarão visíveis para agendamento dos pacientes assim que o credenciamento for aprovado."*
 3. **Regra de Filtro da Vitrine Pública**:
    * A API/Mock de busca de exames (`serviceCatalog.js` / `useServices`) filtra estritamente os serviços pertencentes a clínicas cujo `statusAprovacao === 'APROVADO'`.
-   * Se o status for `PENDENTE_APROVACAO_ADMIN` ou `REJEITADO`, os exames da clínica não são retornados nas consultas de busca por bairro, convênio ou categoria.
+   * Se o status for `PENDENTE_APROVACAO_ADMIN`, `SUSPENSO` ou `REJEITADO`, os exames não são retornados nas buscas públicas.
 
 ---
 
@@ -93,7 +93,7 @@ Permitido (com banner de alerta)   BLOQUEADO (Invisível na vitrine)
 ##### 3.1 Fluxo de Navegação do Usuário
 1. O gestor acessa `/cadastro-clinica` (seja por link direto ou via botão "Credenciar Minha Clínica" na Landing Page B2B).
 2. Preenche os dados jurídicos informando **Razão Social** e **Nome Fantasia** separadamente.
-3. Preenche as etapas de acesso, contato e endereço com upload de imagens.
+3. Preenche as etapas atuais de acesso, contato e aceite; endereço/coordenadas e fotos continuam nas áreas vigentes, incluindo o perfil autenticado.
 4. Ao clicar em "Concluir Credenciamento":
    * Os dados são armazenados via `clinicService.js`.
    * O status de aprovação é definido como `PENDENTE_APROVACAO_ADMIN`.
@@ -105,7 +105,7 @@ Permitido (com banner de alerta)   BLOQUEADO (Invisível na vitrine)
 | Cenário Excepcional | Causa / Condição | Comportamento Esperado do Sistema |
 | :--- | :--- | :--- |
 | **Razão Social igual ao Nome Fantasia** | O usuário digita o mesmo texto nos dois campos. | O sistema aceita sem erros, mas mantém a gravação de ambas as chaves de forma independente. |
-| **CNPJ Já Cadastrado** | Tentativa de credenciamento com CNPJ existente no mock/base. | Exibe borda vermelha no campo CNPJ e mensagem via `FormField.jsx`: *"Este CNPJ já está credenciado na plataforma."* |
+| **CNPJ duplicado** | Não haverá checagem de unicidade na fase mock. | Adiar a consulta de duplicidade à futura base de dados; manter validação local do formato e DV. |
 | **Tentativa de Forçar Exibição Pública sem Aprovação** | Chamada de busca de exames tenta consultar IDs de clínica pendente. | O hook/filtro de serviços descarta os resultados de clínicas não aprovadas, retornando array vazio de exames para o paciente. |
 | **Rejeição pelo Administrador** | Administrador marca `statusAprovacao = 'REJEITADO'`. | O banner do dashboard atualiza a mensagem: *"Credenciamento não aprovado. Entre em contato com o suporte para regularizar suas pendências cadastrais."* |
 
@@ -113,10 +113,10 @@ Permitido (com banner de alerta)   BLOQUEADO (Invisível na vitrine)
 
 #### 4. Critérios de Aceite (Definition of Done)
 
-* [ ] O formulário em `/cadastro-clinica` possui os campos distintos de **Razão Social** e **Nome Fantasia**, ambos com validação de obrigatoriedade.
-* [ ] Todos os campos cadastrais originais (CNPJ, E-mail, Senha, Responsável, Telefone, Endereço com Geolocalização, Galeria de Fotos e Termos) permanecem 100% funcionais no wizard.
-* [ ] A submissão do credenciamento grava a clínica com o status `statusAprovacao: 'PENDENTE_APROVACAO_ADMIN'`.
-* [ ] Ao acessar `/dashboard`, a clínica pendente visualiza o banner `ClinicActionBanner` informando que o cadastro está sob análise administrativa.
+* [x] O formulário em `/cadastro-clinica` possui os campos distintos de **Razão Social** e **Nome Fantasia**, ambos com validação de obrigatoriedade.
+* [ ] As etapas e os campos atuais do wizard permanecem funcionais; endereço/coordenadas seguem no fluxo vigente e as fotos continuam no perfil `/dashboard/perfil`, sem inclusão de novos campos dessas áreas no wizard.
+* [x] A submissão do credenciamento grava a clínica com o status `statusAprovacao: 'PENDENTE_APROVACAO_ADMIN'`.
+* [x] Ao acessar `/dashboard`, a clínica pendente visualiza o banner `ClinicActionBanner` informando que o cadastro está sob análise administrativa.
 * [ ] A busca pública de exames descarta clínicas com status `PENDENTE_APROVACAO_ADMIN`, exibindo na vitrine apenas exames de clínicas com status `APROVADO`.
 * [ ] O utilitário `clinicSignupValidation.js` valida o CNPJ por algoritmo de DV e mascara telefone e CNPJ adequadamente.
 * [ ] O componente `PasswordInput.jsx` é reutilizado no formulário de senha do credenciamento.
@@ -124,4 +124,49 @@ Permitido (com banner de alerta)   BLOQUEADO (Invisível na vitrine)
 
 ---
 
-Está pronta a especificação técnica e funcional da **SPEC-05**! Quando quiser, podemos avançar para o **Item 3** (ou para o próximo item da nossa sequência de especificações).
+
+---
+
+#### Adendo de decisões do Gatekeeper e plano de execução
+
+Este adendo consolida decisões posteriores e prevalece sobre trechos anteriores desta SPEC que indiquem regras divergentes.
+
+##### Decisões de escopo confirmadas
+
+* O wizard mantém suas etapas e comportamento atuais. Nesta SPEC, a alteração cadastral obrigatória é separar Razão Social (`legalName`) e Nome Fantasia (`tradeName`), ambos obrigatórios. O Nome Fantasia é o nome público da clínica.
+* Endereço e coordenadas mantêm o fluxo/fallback já existente; não adicionar novas exigências de endereço ou geolocalização ao wizard nesta etapa. A galeria de fotos continua no perfil autenticado da clínica (`/dashboard/perfil`).
+* A verificação de CNPJ duplicado fica fora do mock e será implementada com a futura base de dados. O CNPJ continua sujeito à validação local de formato e dígitos verificadores.
+* O cadastro novo inicia como `PENDENTE_APROVACAO_ADMIN`. Enquanto pendente, suspenso (`SUSPENSO`) ou rejeitado (`REJEITADO`), a clínica pode acessar o dashboard, mas seus serviços não aparecem na vitrine. Somente `APROVADO` publica serviços.
+* A entrada administrativa será um link simples em Navegação Rápida, no rodapé da landing page, que abre o modal de credenciais.
+* Este escopo não cria backend nem banco de dados; status e sessão administrativa usam armazenamento mock conforme a arquitetura do projeto.
+
+##### Plano de execução por etapas
+
+1. Fechar o contrato do acesso administrativo mock e as transições de moderação nesta SPEC.
+2. Adicionar o link administrativo em Navegação Rápida no rodapé da landing, abrir o modal de credenciais e proteger a rota/página `/admin/clinicas`.
+3. Separar Razão Social e Nome Fantasia no wizard, validação, resumo e persistência do cadastro, preservando as etapas e os demais fluxos existentes.
+4. Persistir o estado de moderação no serviço/hook de clínica e exibir banners coerentes para pendente, suspenso e rejeitado.
+5. Implementar listagem e ações administrativas para aprovar, suspender e rejeitar clínicas.
+6. **Adiada:** filtrar serviços de clínicas cadastradas pelo status quando houver uma fonte de catálogo vinculada a esses cadastros; preservar as ofertas mock demonstrativas atuais até lá (EVOL-006).
+7. Sincronizar este DoD e `docs/prd/checklist-home-clinicle.md`; executar lint e build e conferir os fluxos ponta a ponta.
+
+##### Critérios de aceite adicionais
+
+* [x] O rodapé da landing oferece o link simples "Acesso administrativo" em Navegação Rápida, abrindo o modal de credenciais.
+* [x] A rota `/admin/clinicas` é acessível somente com sessão mock administrativa.
+* [x] O painel lista clínicas cadastradas e permite aprovar, suspender e rejeitar cada uma, persistindo as mudanças mock.
+* [ ] Quando a busca consumir serviços de clínicas cadastradas, somente clínicas com `statusAprovacao: 'APROVADO'` terão seus serviços exibidos; o catálogo demonstrativo atual deve continuar disponível para apresentações.
+* [ ] Cadastro pendente e estados suspenso/rejeitado mantêm acesso ao portal e exibem aviso apropriado.
+* [ ] A checagem de CNPJ duplicado permanece explicitamente adiada à integração com a base persistida.
+
+##### Definição ainda necessária antes da etapa 2
+
+Contrato definido: o modal da landing valida o usuario `gerir_e_confiar` e a senha `admin500!`; em sucesso grava `gms_admin_authenticated` em `sessionStorage` e navega para `/admin/clinicas`. A rota verifica a sessao e redireciona para `/` quando ausente. A validacao e demonstrativa no frontend, nao seguranca real; autenticacao protegida pertence a etapa backend.
+
+#### Andamento
+
+Etapas 1 (escopo), 2 (entrada admin), 3 (campos jurídicos separados), 4 (persistência do status e avisos no dashboard) e 5 (listagem e ações administrativas de moderação) concluídas. A etapa 6 está adiada: o catálogo público permanece com os dados mock para apresentações. O filtro será retomado quando os serviços públicos vierem de cadastros de clínicas, preservando as ofertas demonstrativas atuais (EVOL-006). Portanto, a SPEC-05 ainda não está concluída.
+
+#### Status
+
+A SPEC-05 permanece EM ANDAMENTO até a retomada da etapa 6, a validação do filtro sobre serviços de clínicas cadastradas e a conferência final dos critérios de aceite.
