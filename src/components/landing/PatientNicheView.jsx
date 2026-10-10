@@ -1,11 +1,21 @@
 import { useMemo, useState } from 'react'
 import { Activity, ArrowRight, CheckCircle2, Clock3, FileText, FlaskConical, HeartPulse, Stethoscope } from 'lucide-react'
 import { STANDARD_PROCEDURES_CATALOG } from '../../data/standardCatalog'
+import { MOCK_SERVICES_CATALOG } from '../../data/catalogData'
+import { DEFAULT_SEARCH_LOCATION_ID, MOCK_SEARCH_LOCATIONS, getHaversineDistanceKm } from '../../data/locationCatalog'
 import { SERVICE_CATEGORIES } from '../../constants/catalogConstants'
 import { INSURANCES, getInsuranceNames } from '../../data/insurances'
 import { formatCurrencyBRL } from '../../utils/serviceValidation'
 import { CatalogFilters } from '../catalog/CatalogFilters'
 import { TestimonialsCarousel } from './TestimonialsCarousel'
+import LocationSearchInput from '../patient/LocationSearchInput'
+import { APPOINTMENT_PERIODS, getAvailableClinicSlots } from '../../data/clinicAvailability'
+
+const CLINIC_LOCATION_BY_NEIGHBORHOOD = {
+  'Vilas do Atlântico': 'vilas-atlantico',
+  'Estrada do Coco': 'estrada-coco',
+  Centro: 'centro-lauro',
+}
 
 function getCategoryIcon(category) {
   switch (category) {
@@ -37,7 +47,26 @@ function getCategoryBadgeClass(category) {
   }
 }
 
-function PatientNicheView({ onOpenAuth, onGoToSignup }) {
+const CART_CATEGORY_BY_CATALOG_CATEGORY = {
+  laboratorio: 'LAB',
+  imagem: 'IMG',
+  cardiologia: 'CARDIO',
+  consultas: 'CONSULT',
+  outros: 'OUTROS',
+}
+
+function getClinicService(exam) {
+  return MOCK_SERVICES_CATALOG.find((item) => item.name === exam.name) ||
+    MOCK_SERVICES_CATALOG.find((item) => item.tussCode === exam.tussCode)
+}
+
+function getClinicInsuranceIds(clinicService) {
+  return (clinicService?.insurances || []).map((insuranceId) =>
+    insuranceId.startsWith('ins-') ? insuranceId : `ins-${insuranceId}`
+  )
+}
+
+function PatientNicheView({ onOpenAuth, onGoToSignup, onAddToCart }) {
   const allPrices = useMemo(
     () => STANDARD_PROCEDURES_CATALOG.map((item) => item.suggestedPrivatePrice || 0),
     []
@@ -47,9 +76,13 @@ function PatientNicheView({ onOpenAuth, onGoToSignup }) {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [selectedInsurance, setSelectedInsurance] = useState('all')
+  const [selectedPeriod, setSelectedPeriod] = useState('all')
   const [minPrice, setMinPrice] = useState(baseMinPrice)
   const [maxPrice, setMaxPrice] = useState(baseMaxPrice)
   const [visibleCount, setVisibleCount] = useState(9)
+  const [searchLocation, setSearchLocation] = useState(
+    MOCK_SEARCH_LOCATIONS.find((location) => location.id === DEFAULT_SEARCH_LOCATION_ID)
+  )
 
   const resetVisibleCount = (callback) => (value) => {
     callback(value)
@@ -60,8 +93,10 @@ function PatientNicheView({ onOpenAuth, onGoToSignup }) {
     setSearchTerm('')
     setSelectedCategory('all')
     setSelectedInsurance('all')
+    setSelectedPeriod('all')
     setMinPrice(baseMinPrice)
     setMaxPrice(baseMaxPrice)
+    setSearchLocation(MOCK_SEARCH_LOCATIONS.find((location) => location.id === DEFAULT_SEARCH_LOCATION_ID))
     setVisibleCount(9)
   }
 
@@ -70,11 +105,10 @@ function PatientNicheView({ onOpenAuth, onGoToSignup }) {
 
     return STANDARD_PROCEDURES_CATALOG.filter((item) => {
       const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory
-      const matchesInsurance =
-        selectedInsurance === 'all' ||
-        (selectedInsurance === 'ins-particular'
-          ? !item.suggestedInsuranceIds?.length || item.suggestedInsuranceIds.includes('ins-particular')
-          : item.suggestedInsuranceIds?.includes(selectedInsurance))
+      const clinicService = getClinicService(item)
+      const clinicInsuranceIds = getClinicInsuranceIds(clinicService)
+      const matchesInsurance = selectedInsurance === 'all' || clinicInsuranceIds.includes(selectedInsurance)
+      const matchesPeriod = selectedPeriod === 'all' || getAvailableClinicSlots(clinicService?.clinic.id, new Date(), selectedPeriod).length > 0
       const price = item.suggestedPrivatePrice || 0
       const matchesPrice = price >= minPrice && price <= maxPrice
       const matchesTerm =
@@ -83,13 +117,38 @@ function PatientNicheView({ onOpenAuth, onGoToSignup }) {
         item.tussCode?.toLowerCase().includes(term) ||
         item.suggestedPrep?.toLowerCase().includes(term)
 
-      return matchesCategory && matchesInsurance && matchesPrice && matchesTerm
+      return matchesCategory && matchesInsurance && matchesPeriod && matchesPrice && matchesTerm
     })
-  }, [maxPrice, minPrice, searchTerm, selectedCategory, selectedInsurance])
+  }, [maxPrice, minPrice, searchTerm, selectedCategory, selectedInsurance, selectedPeriod])
+
+  const orderedCatalog = useMemo(() => {
+    return filteredCatalog
+      .map((service, originalIndex) => {
+        const clinicService = getClinicService(service)
+        const clinicLocationId = CLINIC_LOCATION_BY_NEIGHBORHOOD[clinicService?.clinic.neighborhood]
+        const clinicLocation = MOCK_SEARCH_LOCATIONS.find((location) => location.id === clinicLocationId)
+        return {
+          service,
+          originalIndex,
+          rating: clinicService?.clinic.rating || 0,
+          distance: clinicLocation ? getHaversineDistanceKm(searchLocation, clinicLocation) : Number.POSITIVE_INFINITY,
+        }
+      })
+      .sort((a, b) => {
+        if (Number.isFinite(a.distance) !== Number.isFinite(b.distance)) {
+          return Number.isFinite(a.distance) ? -1 : 1
+        }
+        const distanceDifference = a.distance - b.distance
+        if (Number.isFinite(distanceDifference) && Math.abs(distanceDifference) > 0.001) return distanceDifference
+        if (Math.abs(distanceDifference) <= 0.001) return b.rating - a.rating || a.originalIndex - b.originalIndex
+        return a.originalIndex - b.originalIndex
+      })
+      .map(({ service }) => service)
+  }, [filteredCatalog, searchLocation])
 
   const displayedCatalog = useMemo(
-    () => filteredCatalog.slice(0, visibleCount),
-    [filteredCatalog, visibleCount]
+    () => orderedCatalog.slice(0, visibleCount),
+    [orderedCatalog, visibleCount]
   )
 
   const categoryOptions = useMemo(
@@ -111,20 +170,28 @@ function PatientNicheView({ onOpenAuth, onGoToSignup }) {
       ...INSURANCES.map((insurance) => ({
         id: insurance.id,
         label: insurance.name,
-        count: STANDARD_PROCEDURES_CATALOG.filter((item) =>
-          insurance.id === 'ins-particular'
-            ? !item.suggestedInsuranceIds?.length || item.suggestedInsuranceIds.includes('ins-particular')
-            : item.suggestedInsuranceIds?.includes(insurance.id)
-        ).length,
+        count: STANDARD_PROCEDURES_CATALOG.filter((item) => getClinicInsuranceIds(getClinicService(item)).includes(insurance.id)).length,
       })),
     ],
     []
   )
 
+  const periodOptions = useMemo(() => [
+    { id: 'all', label: 'Todos os períodos', count: STANDARD_PROCEDURES_CATALOG.length },
+    ...APPOINTMENT_PERIODS.map((period) => ({
+      ...period,
+      count: STANDARD_PROCEDURES_CATALOG.filter((item) =>
+        getAvailableClinicSlots(getClinicService(item)?.clinic.id, new Date(), period.id).length > 0
+      ).length,
+    })),
+  ], [])
+
   const hasActiveFilters =
     searchTerm !== '' ||
     selectedCategory !== 'all' ||
     selectedInsurance !== 'all' ||
+    selectedPeriod !== 'all' ||
+    searchLocation.id !== DEFAULT_SEARCH_LOCATION_ID ||
     minPrice > baseMinPrice ||
     maxPrice < baseMaxPrice
 
@@ -182,6 +249,8 @@ function PatientNicheView({ onOpenAuth, onGoToSignup }) {
             <p className="mt-2 text-sm text-slate-600 md:text-base">Filtre por categoria, convênio e valor de referência.</p>
           </div>
 
+          <LocationSearchInput value={searchLocation} onChange={(location) => { setSearchLocation(location); setVisibleCount(9) }} />
+
           <CatalogFilters
             searchTerm={searchTerm}
             onSearchChange={resetVisibleCount(setSearchTerm)}
@@ -191,6 +260,9 @@ function PatientNicheView({ onOpenAuth, onGoToSignup }) {
             insuranceOptions={insuranceOptions}
             selectedInsurance={selectedInsurance}
             onInsuranceChange={resetVisibleCount(setSelectedInsurance)}
+            periodOptions={periodOptions}
+            selectedPeriod={selectedPeriod}
+            onPeriodChange={resetVisibleCount(setSelectedPeriod)}
             baseMinPrice={baseMinPrice}
             baseMaxPrice={baseMaxPrice}
             minPrice={minPrice}
@@ -212,7 +284,43 @@ function PatientNicheView({ onOpenAuth, onGoToSignup }) {
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {displayedCatalog.map((service) => {
-                const insurances = getInsuranceNames(service.suggestedInsuranceIds || [])
+                const clinicService = getClinicService(service)
+                const clinicInsuranceIds = getClinicInsuranceIds(clinicService)
+                const insurances = getInsuranceNames(clinicInsuranceIds.filter((insuranceId) => insuranceId !== 'ins-particular'))
+                const selectedOfferedInsuranceId =
+                  selectedInsurance !== 'all' &&
+                  selectedInsurance !== 'ins-particular' &&
+                  clinicInsuranceIds.includes(selectedInsurance)
+                    ? selectedInsurance
+                    : ''
+                const initialPaymentType = selectedOfferedInsuranceId || clinicInsuranceIds.includes('ins-particular')
+                  ? (selectedOfferedInsuranceId ? 'CONVENIO' : 'PARTICULAR')
+                  : 'CONVENIO'
+                const initialInsuranceId = selectedOfferedInsuranceId || (
+                  initialPaymentType === 'CONVENIO'
+                    ? clinicInsuranceIds.find((insuranceId) => insuranceId !== 'ins-particular') || ''
+                    : ''
+                )
+                const cartItem = clinicService
+                  ? {
+                      examId: service.id,
+                      examName: service.name,
+                      category: CART_CATEGORY_BY_CATALOG_CATEGORY[service.category] || 'OUTROS',
+                      clinicId: clinicService.clinic.id,
+                      clinicName: clinicService.clinic.name,
+                      clinicAddress: clinicService.clinic.address,
+                      clinicNeighborhood: clinicService.clinic.neighborhood,
+                      clinicRating: clinicService.clinic.rating,
+                      serviceId: clinicService.id,
+                      privatePrice: clinicService.privatePrice,
+                      tussCode: clinicService.tussCode || service.tussCode || '',
+                      descriptionPrep: clinicService.descriptionPrep,
+                      insuranceIds: clinicInsuranceIds,
+                      paymentType: initialPaymentType,
+                      selectedInsuranceId: initialInsuranceId,
+                      selectedPeriod: selectedPeriod === 'all' ? '' : selectedPeriod,
+                    }
+                  : null
                 return (
                   <article key={service.id} className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-emerald-300 hover:shadow-md">
                     <div className="space-y-3">
@@ -247,6 +355,16 @@ function PatientNicheView({ onOpenAuth, onGoToSignup }) {
                           </div>
                         </div>
                       )}
+                      <div className="pt-2">
+                        <button
+                          type="button"
+                          disabled={!cartItem}
+                          onClick={() => onAddToCart(cartItem)}
+                          className="w-full rounded-lg bg-emerald-600 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
+                        >
+                          {cartItem ? 'Solicitar agendamento' : 'Sem clínica disponível no catálogo mock'}
+                        </button>
+                      </div>
                     </div>
                   </article>
                 )
@@ -254,7 +372,7 @@ function PatientNicheView({ onOpenAuth, onGoToSignup }) {
             </div>
           )}
 
-          {visibleCount < filteredCatalog.length && (
+          {visibleCount < orderedCatalog.length && (
             <div className="flex justify-center pt-3">
               <button type="button" onClick={() => setVisibleCount((count) => count + 6)} className="inline-flex items-center gap-2 rounded-xl border border-emerald-600 bg-emerald-50 px-6 py-3 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-600 hover:text-white">
                 Carregar mais <ArrowRight className="h-4 w-4" aria-hidden="true" />

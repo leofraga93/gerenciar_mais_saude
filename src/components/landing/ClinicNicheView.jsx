@@ -9,7 +9,7 @@ function ClinicNicheView({ onOpenAuth, onGoToSignup }) {
         <img
           src="https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=2000&q=85"
           alt="Equipe médica reunida em ambiente profissional de saúde"
-          className="absolute inset-0 -z-20 h-full w-full object-cover object-center"
+          className="absolute inset-0 -z-20 h-full w-full object-cover object-[center_30%]"
         />
         <div className="absolute inset-0 -z-10 bg-gradient-to-r from-slate-950/90 via-slate-900/75 to-blue-950/50" aria-hidden="true" />
         <div className="mx-auto grid max-w-6xl items-center gap-10 px-6 py-16 md:grid-cols-12 md:px-10 md:py-20">

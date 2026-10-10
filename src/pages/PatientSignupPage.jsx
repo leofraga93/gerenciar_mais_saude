@@ -33,6 +33,7 @@ const INITIAL_FORM = {
   insuranceIds: ['ins-particular'],
   acceptTerms: false,
 }
+const PENDING_ORDER_STORAGE_KEY = 'gms_return_to_exam_list'
 
 function PatientSignupPage() {
   const navigate = useNavigate()
@@ -227,12 +228,13 @@ function PatientSignupPage() {
       showToast('Cadastro realizado com sucesso!', 'success')
 
       setTimeout(() => {
+        if (window.sessionStorage.getItem(PENDING_ORDER_STORAGE_KEY) === 'true') {
+          window.sessionStorage.setItem('gms_patient_authenticated', 'true')
+          navigate('/')
+          return
+        }
         navigate('/paciente/inicio', {
-          state: {
-            email: formData.email,
-            name: formData.fullName,
-            welcomeMessage: 'Cadastro realizado com sucesso!',
-          },
+          state: { email: formData.email, name: formData.fullName, welcomeMessage: 'Cadastro realizado com sucesso!' },
         })
       }, 700)
     } catch {
