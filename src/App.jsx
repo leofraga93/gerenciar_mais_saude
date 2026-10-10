@@ -9,6 +9,8 @@ import ClinicAgendaPage from './pages/clinic/ClinicAgendaPage'
 import ClinicServicesPage from './pages/clinic/ClinicServicesPage'
 import ClinicFinancePage from './pages/clinic/ClinicFinancePage'
 import ClinicProfilePage from './pages/clinic/ClinicProfilePage'
+import AdminClinicsPage from './pages/admin/AdminClinicsPage'
+import AdminRoute from './components/admin/AdminRoute'
 
 function App() {
   return (
@@ -18,6 +20,7 @@ function App() {
         <Route path="/cadastro-clinica" element={<ClinicSignupPage />} />
         <Route path="/cadastro-paciente" element={<PatientSignupPage />} />
         <Route path="/paciente/inicio" element={<PatientWelcomePage />} />
+        <Route path="/admin/clinicas" element={<AdminRoute><AdminClinicsPage /></AdminRoute>} />
 
         <Route path="/dashboard" element={<ClinicShell />}>
           <Route index element={<ClinicDashboardPage />} />

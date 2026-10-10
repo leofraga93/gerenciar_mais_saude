@@ -16,7 +16,7 @@ const VALID_DDDS = new Set([
 ])
 
 export const SIGNUP_STEP_FIELDS = {
-  1: ['tradeName', 'cnpj'],
+  1: ['legalName', 'tradeName', 'cnpj'],
   2: ['email', 'password', 'confirmPassword'],
   3: ['managerName', 'phone', 'referralCode'],
   4: ['acceptTerms'],
@@ -79,6 +79,15 @@ function isValidBrazilianPhone(value) {
   }
 
   return true
+}
+
+function validateLegalName(value) {
+  const trimmed = value?.trim() ?? ''
+  if (!trimmed) return 'Informe a raz\u00e3o social.'
+  if (trimmed.length < 3) return 'A raz\u00e3o social deve ter pelo menos 3 caracteres.'
+  if (trimmed.length > 200) return 'A raz\u00e3o social deve ter no m\u00e1ximo 200 caracteres.'
+  if (!/\p{L}/u.test(trimmed)) return 'A raz\u00e3o social deve conter letras.'
+  return null
 }
 
 function validateTradeName(value) {
@@ -159,6 +168,7 @@ function validateAcceptTerms(value) {
 }
 
 const FIELD_VALIDATORS = {
+  legalName: (form) => validateLegalName(form.legalName),
   tradeName: (form) => validateTradeName(form.tradeName),
   cnpj: (form) => validateCnpj(form.cnpj),
   email: (form) => validateEmail(form.email),

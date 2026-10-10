@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { getRegisteredClinic } from '../../services/clinicService'
+import { CLINIC_APPROVAL_STATUS, getRegisteredClinic } from '../../services/clinicService'
 import ClinicActionBanner from '../../components/clinic/ClinicActionBanner'
 import { StatCard } from '../../components/clinic/StatCard'
 import { StatusBadge } from '../../components/clinic/StatusBadge'
@@ -28,6 +28,23 @@ function ClinicDashboardPage() {
   const showBanner = Boolean(
     location.state?.showCompleteProfileBanner ?? registeredClinic?.profileComplete === false,
   )
+  const moderationNotice = {
+    [CLINIC_APPROVAL_STATUS.PENDING]: {
+      badge: 'Credenciamento em análise',
+      title: 'Cadastro em análise',
+      description: 'Sua clínica e seu catálogo de exames estão sob verificação da administração da plataforma. Os exames ficarão visíveis para agendamento dos pacientes assim que o credenciamento for aprovado.',
+    },
+    [CLINIC_APPROVAL_STATUS.SUSPENDED]: {
+      badge: 'Clínica suspensa',
+      title: 'A publicação da clínica está suspensa',
+      description: 'Sua clínica continua com acesso ao portal, mas os serviços não estão disponíveis para agendamento. Entre em contato com a administração da plataforma para entender como regularizar a situação.',
+    },
+    [CLINIC_APPROVAL_STATUS.REJECTED]: {
+      badge: 'Credenciamento não aprovado',
+      title: 'O credenciamento não foi aprovado',
+      description: 'Sua clínica continua com acesso ao portal para consultar os dados cadastrados. Entre em contato com o suporte para regularizar as pendências cadastrais.',
+    },
+  }[registeredClinic?.statusAprovacao]
 
   const { data: appointments = [], isLoading } = useAppointments()
 
@@ -54,6 +71,16 @@ function ClinicDashboardPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 pb-12">
+      {moderationNotice ? (
+        <ClinicActionBanner
+          type="warning"
+          badge="Status da clínica"
+          badgeDetail={moderationNotice.badge}
+          title={moderationNotice.title}
+          description={moderationNotice.description}
+          icon={IconHospital}
+        />
+      ) : null}
       {showBanner ? (
         <ClinicActionBanner
           type="warning"
