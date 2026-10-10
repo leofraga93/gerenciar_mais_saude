@@ -1,7 +1,8 @@
 ### Checklist - Portais Pós-Credenciamento (GerenciarSaúde)
 Base de comparação: docs/.cursorrulesIndexHomeClinicle, SPEC-05, SPEC-07 e fluxo de negócio B2B2C.
+Roadmap transversal de evolução: `docs/prd/roadmap-evolucao.md` (itens EVOL-001 a EVOL-004).
 **Escopo desta fase:** front-end visual + mock data. **Fora de escopo agora:** banco de dados, fetch/axios real, persistência de token. **Preparar desde já:** contratos de dados, src/data/*.js, src/services/*.js, hooks compatíveis com TanStack Query.
-**Última revisão:** Incorporação da SPEC-05 (Campos jurídicos Razão Social vs Nome Fantasia e Trava de Moderação Admin `PENDENTE_APROVACAO_ADMIN`) e SPEC-07 (Badge `PENDENCIA_PAGAMENTO` e Notificações WhatsApp).
+**Última revisão:** SPEC-05 etapas 1–5: campos jurídicos separados, status e banners de moderação, listagem administrativa e ações mock; SPEC-07 (Badge `PENDENCIA_PAGAMENTO` e Notificações WhatsApp).
 
 --------------------------------------------------------------------------------
 
@@ -23,6 +24,7 @@ Landing (/) → Credenciamento (/cadastro-clinica) → Moderação (PENDENTE_APR
 *  [x] Modal de acesso com abas: **Acesso Clínica** vs **Acesso Paciente**.
 *  [x] Redirecionamento mock por perfil no submit: Clínica → /dashboard; Paciente → /paciente/inicio.
 *  [x] CTA na landing/modal: navegação para credenciamento (navigate('/cadastro-clinica')).
+*  [x] Link simples "Acesso administrativo" em Navegação Rápida no rodapé abre modal mock e, após validação, direciona para `/admin/clinicas` (SPEC-05).
 
 ##### 1.2 Portal da clínica — ClinicShell (§3.1)
 *  [x] Layout **ClinicShell** envolvendo /dashboard/* (src/components/clinic/ClinicShell.jsx).
@@ -39,22 +41,23 @@ Wizard em 4 etapas para criar a conta da empresa e submeter para análise da adm
 ##### 2.1 Campos do Credenciamento B2B (Preservação Integral)
 | Campo | Obrigatório | Status UI | Regra / Observação |
 | ------ | ------ | ------ | ------ |
-| **Razão Social** | Sim | [ ] Etapa 1 | Nome jurídico formal completo (mín. 3 caracteres) |
-| **Nome Fantasia** | Sim | [ ] Etapa 1 | Nome de exibição pública da clínica para pacientes na vitrine |
+| **Razão Social** | Sim | [x] Etapa 1 | Campo obrigatório separado; nome jurídico formal completo (mín. 3 caracteres) |
+| **Nome Fantasia** | Sim | [x] Etapa 1 | Campo obrigatório separado; nome exibido aos pacientes na vitrine |
 | **CNPJ** | Sim | [x] Etapa 1 | 14 dígitos com validação de algoritmo de DV |
 | **E-mail Administrativo (login)** | Sim | [x] Etapa 2 | Login de acesso ao portal |
 | **Senha + Confirmação** | Sim | [x] Etapa 2 | Mínimo 8 caracteres (letras + números) via `PasswordInput.jsx` |
 | **Nome do Responsável / Gestor** | Sim | [x] Etapa 3 | Nome completo (mínimo 2 palavras) |
 | **Telefone / WhatsApp comercial** | Sim | [x] Etapa 3 | DDD + Fixo ou Celular com máscara `(00) 00000-0000` |
 | **Código de Indicação / Parceiro** | Não | [x] Etapa 3 | Alfanumérico opcional |
-| **Endereço Completo & Geolocalização** | Sim | [x] Etapa 4 | Logradouro, bairro, cidade (Lauro de Freitas/RMS) e CEP |
-| **Galeria de Fotos do Estabelecimento**| Sim | [x] Etapa 4 | Upload Base64 da fachada, recepção e salas |
+| **Endereço Completo & Geolocalização** | Sim | [x] Fluxo vigente | Manter comportamento atual; não adicionar novas exigências ao wizard nesta SPEC. |
+| **Galeria de Fotos do Estabelecimento** | Sim | [x] Perfil da clínica | Gerenciada em `/dashboard/perfil`; não mover para o wizard. |
 | **Aceite Termos & Privacidade** | Sim | [x] Etapa 4 | Consentimento LGPD obrigatório |
 
 ##### 2.2 Trava de Moderação Administrativa (`PENDENTE_APROVACAO_ADMIN`)
-*  [ ] **Status Pós-Credenciamento:** Ao concluir o cadastro, o perfil da clínica é gravado em `clinicService.js` com o campo `statusAprovacao: 'PENDENTE_APROVACAO_ADMIN'`.
-*  [ ] **Navegação com Alerta no Dashboard:** O gestor acessa o `/dashboard` e visualiza o banner em destaque `ClinicActionBanner.jsx`: *"Seu cadastro e catálogo de exames estão sob análise da administração da plataforma. Assim que aprovados, seus serviços ficarão visíveis para os pacientes."*
-*  [ ] **Bloqueio de Exibição na Vitrine Pública:** A busca pública de exames descarta clínicas com status `PENDENTE_APROVACAO_ADMIN`, exibindo na vitrine apenas serviços pertencentes a clínicas com status `APROVADO`.
+*  [x] **Status Pós-Credenciamento:** salvar clínicas novas como `PENDENTE_APROVACAO_ADMIN`; publicação condicionada a `APROVADO`.
+*  [x] **Navegação com Alerta no Dashboard:** O gestor mantém acesso ao `/dashboard` e visualiza `ClinicActionBanner.jsx` com mensagens para clínica pendente, suspensa ou rejeitada.
+*  [x] **Painel de Moderação:** `/admin/clinicas` lista os cadastros e persiste ações para aprovar, suspender e rejeitar.
+*  [ ] **Bloqueio de Exibição na Vitrine Pública (EVOL-006, adiado):** quando os serviços da busca vierem de cadastros de clínicas, descartar clínicas sem status `APROVADO`. Até essa fonte existir, preservar as ofertas demonstrativas mock atuais na vitrine.
 
 --------------------------------------------------------------------------------
 
@@ -93,8 +96,8 @@ Wizard em 4 etapas para criar a conta da empresa e submeter para análise da adm
 | Área | Status |
 | ------ | ------ |
 | Landing + rotas base + modal por perfil | **Concluído** |
-| Credenciamento B2B Completo | **Concluído** (Campos Razão Social vs Fantasia em implementação na SPEC-05) |
-| Trava de Moderação Admin | **Em Implementação (`SPEC-05`)** |
+| Credenciamento B2B Completo | **Em andamento** (campos Razão Social e Nome Fantasia separados; moderação e demais critérios seguem na SPEC-05) |
+| Trava de Moderação Admin | **Em andamento (`SPEC-05`, etapas 1–5 concluídas; filtro sobre cadastros reais adiado em EVOL-006)** |
 | Dashboard + ClinicShell + Métricas | **Concluído** |
 | Catálogo de Serviços + Fotos + Convênios | **Concluído** |
 | Agenda + Máquina de Estados | **Concluído** |

@@ -12,6 +12,7 @@ Este documento contém as **regras permanentes e inegociáveis** do projeto *Ger
   - Toda persistência atual deve ser simulada localmente via `sessionStorage`, `localStorage` e serviços desacoplados em `src/services/*.js`.
   - Dados padrão devem residir em `src/data/*.js`.
   - **Sempre use TanStack Query**: Todas as operações assíncronas de leitura e mutação devem ser encapsuladas em hooks com TanStack Query (`useQuery`, `useMutation` com invalidação ou atualização otimista de cache via `queryKey`).
+  - Frentes transversais futuras (expansão de tipos de organização, evolução para backend e melhoria de bundle) ficam rastreadas em `docs/prd/roadmap-evolucao.md`; esse roadmap não altera o escopo da SPEC ativa nem autoriza backend.
 
 ---
 
