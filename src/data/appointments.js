@@ -8,6 +8,23 @@ export const APPOINTMENT_STATUS = {
   CANCELADO: 'CANCELADO',
 }
 
+const ALLOWED_APPOINTMENT_TRANSITIONS = Object.freeze({
+  [APPOINTMENT_STATUS.SOLICITADO]: Object.freeze([
+    APPOINTMENT_STATUS.CONFIRMADO_CLINICA,
+    APPOINTMENT_STATUS.CANCELADO,
+  ]),
+  [APPOINTMENT_STATUS.CONFIRMADO_CLINICA]: Object.freeze([
+    APPOINTMENT_STATUS.PAGO,
+    APPOINTMENT_STATUS.CANCELADO,
+  ]),
+  [APPOINTMENT_STATUS.PAGO]: Object.freeze([]),
+  [APPOINTMENT_STATUS.CANCELADO]: Object.freeze([]),
+})
+
+export function canTransitionAppointment(currentStatus, nextStatus) {
+  return ALLOWED_APPOINTMENT_TRANSITIONS[currentStatus]?.includes(nextStatus) ?? false
+}
+
 export const APPOINTMENT_STATUS_CONFIG = {
   SOLICITADO: {
     id: 'SOLICITADO',

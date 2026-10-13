@@ -206,7 +206,6 @@ function PatientNicheView({ onOpenAuth, onGoToSignup, onAddToCart }) {
         <div className="absolute inset-0 -z-10 bg-gradient-to-r from-emerald-950/85 via-emerald-900/70 to-slate-900/45" aria-hidden="true" />
         <div className="mx-auto grid max-w-6xl items-center gap-8 px-6 py-14 md:grid-cols-12 md:px-10 md:py-20">
           <div className="space-y-5 md:col-span-7">
-            <p className="text-sm font-semibold uppercase tracking-[0.14em] text-emerald-200">Sua jornada de cuidado</p>
             <h1 className="text-4xl font-bold leading-tight tracking-tight text-white md:text-5xl">
               Encontre exames e serviços de saúde com mais clareza.
             </h1>
@@ -382,8 +381,7 @@ function PatientNicheView({ onOpenAuth, onGoToSignup, onAddToCart }) {
         </section>
 
         <section id="jornada-paciente" className="rounded-2xl bg-gradient-to-br from-emerald-800 via-emerald-700 to-teal-800 p-6 text-white shadow-md md:p-9">
-          <p className="text-sm font-semibold uppercase tracking-wider text-emerald-100">Sua experiência de cuidado</p>
-          <h2 className="mt-2 text-2xl font-bold md:text-3xl">Informação clara em cada etapa</h2>
+          <h2 className="text-2xl font-bold md:text-3xl">Informação clara em cada etapa</h2>
           <div className="mt-7 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {[
               ['01', 'Encontre exames e especialistas', 'Busque por região, convênio, especialidade ou exame.'],

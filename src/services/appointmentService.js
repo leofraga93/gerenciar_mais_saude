@@ -1,4 +1,4 @@
-import { DEFAULT_APPOINTMENTS, APPOINTMENT_STATUS } from '../data/appointments'
+import { DEFAULT_APPOINTMENTS, APPOINTMENT_STATUS, canTransitionAppointment } from '../data/appointments'
 import { MOCK_SERVICES_CATALOG } from '../data/catalogData'
 import { getAvailableClinicSlots } from '../data/clinicAvailability'
 import { INSURANCES } from '../data/insurances'
@@ -195,38 +195,37 @@ export function saveAppointment(payload) {
 /**
  * Transição de status da Máquina de Estados:
  * SOLICITADO -> CONFIRMADO_CLINICA -> PAGO
- * ou qualquer estado -> CANCELADO
+ * PAGO e CANCELADO sÃ£o estados terminais.
  */
 export function updateAppointmentStatus(id, newStatus, reason = '') {
   return new Promise((resolve, reject) => {
     setTimeout(() => {
       const appointments = loadAppointmentsFromStorage()
-      let updatedItem = null
+      const appointment = appointments.find((item) => item.id === id)
 
-      const updatedList = appointments.map((item) => {
-        if (item.id === id) {
-          // Validação da máquina de estados: não pode ir para PAGO direto de SOLICITADO
-          if (newStatus === APPOINTMENT_STATUS.PAGO && item.status === APPOINTMENT_STATUS.SOLICITADO) {
-            console.warn('Ação bloqueada: É necessário confirmar a vaga na clínica antes de registrar pagamento.')
-          }
-
-          updatedItem = {
-            ...item,
-            status: newStatus,
-            cancelReason: newStatus === APPOINTMENT_STATUS.CANCELADO ? reason : undefined,
-            updatedAt: new Date().toISOString(),
-          }
-          return updatedItem
-        }
-        return item
-      })
-
-      if (updatedItem) {
-        saveAppointmentsToStorage(updatedList)
-        resolve(updatedItem)
-      } else {
+      if (!appointment) {
         reject(new Error('Agendamento não encontrado'))
+        return
       }
+
+      if (!canTransitionAppointment(appointment.status, newStatus)) {
+        const message = appointment.status === APPOINTMENT_STATUS.SOLICITADO && newStatus === APPOINTMENT_STATUS.PAGO
+          ? 'O agendamento precisa ser confirmado pela clínica antes do registro de pagamento.'
+          : 'Esta alteração não é permitida para o status atual do agendamento.'
+        reject(new Error(message))
+        return
+      }
+
+      const updatedItem = {
+        ...appointment,
+        status: newStatus,
+        cancelReason: newStatus === APPOINTMENT_STATUS.CANCELADO ? reason : undefined,
+        updatedAt: new Date().toISOString(),
+      }
+      const updatedList = appointments.map((item) => item.id === id ? updatedItem : item)
+
+      saveAppointmentsToStorage(updatedList)
+      resolve(updatedItem)
     }, MOCK_DELAY_MS)
   })
 }

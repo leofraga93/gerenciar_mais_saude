@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { APPOINTMENT_STATUS, APPOINTMENT_STATUS_CONFIG } from '../../data/appointments'
+import { APPOINTMENT_STATUS, APPOINTMENT_STATUS_CONFIG, canTransitionAppointment } from '../../data/appointments'
 import { useAppointments, useUpdateAppointmentStatus } from '../../hooks/useAppointments'
 import { StatusBadge } from '../../components/clinic/StatusBadge'
 import Toast from '../../components/common/Toast'
@@ -21,14 +21,13 @@ import { formatCurrencyBRL } from '../../utils/serviceValidation'
 
 /** Retorna os botões de ação permitidos pela máquina de estados. */
 function getAvailableActions(status) {
-  switch (status) {
-    case APPOINTMENT_STATUS.SOLICITADO:
-      return ['confirm', 'cancel']
-    case APPOINTMENT_STATUS.CONFIRMADO_CLINICA:
-      return ['pay', 'cancel']
-    default:
-      return [] // PAGO e CANCELADO são terminais
-  }
+  return [
+    ['confirm', APPOINTMENT_STATUS.CONFIRMADO_CLINICA],
+    ['pay', APPOINTMENT_STATUS.PAGO],
+    ['cancel', APPOINTMENT_STATUS.CANCELADO],
+  ]
+    .filter(([, nextStatus]) => canTransitionAppointment(status, nextStatus))
+    .map(([action]) => action)
 }
 
 function formatDate(dateStr) {
@@ -186,8 +185,8 @@ export default function ClinicAgendaPage() {
       await updateStatus.mutateAsync({ id, newStatus })
       const label = APPOINTMENT_STATUS_CONFIG[newStatus]?.label ?? newStatus
       showToast(`Status atualizado para: ${label}`)
-    } catch {
-      showToast('Não foi possível atualizar o status.', 'error')
+    } catch (error) {
+      showToast(error.message || 'Não foi possível atualizar o status.', 'error')
     }
   }
 

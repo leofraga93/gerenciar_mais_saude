@@ -65,7 +65,6 @@ function AuthModal({ audience, onClose, onSubmit, onSuccess, onGoToSignup }) {
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-semibold text-emerald-700">Gerenciar Mais Saúde</p>
             <h2 id="auth-modal-title" className="mt-1 text-2xl font-bold text-slate-900">{title}</h2>
             <p className="mt-1 text-sm text-slate-600">Acesse sua área para continuar.</p>
           </div>

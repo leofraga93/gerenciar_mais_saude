@@ -43,20 +43,14 @@
 ##### 2.1 Máquina de Estados de Agendamento Reformulada
 
 ```text
-  SOLICITADO (Azul) ──► CONFIRMADO_CLINICA (Amarelo)
-                             │
-            ┌────────────────┴────────────────┐
-            ▼                                 ▼
-   Pagamento Compensado             Pagamento Diferido / Não Liquidado
-            │                                 │
-            ▼                                 ▼
-       PAGO (Verde)                 PENDENCIA_PAGAMENTO (Laranja)
-            │                                 │
-            └────────────────┬────────────────┘
-                             │
-                             ▼
-                    FINALIZADO (Cinza)
+SOLICITADO -> CONFIRMADO_CLINICA -> PAGO (terminal)
+SOLICITADO -> CANCELADO (terminal)
+CONFIRMADO_CLINICA -> CANCELADO (terminal)
+CONFIRMADO_CLINICA -> PENDENCIA_PAGAMENTO (planejado)
+PENDENCIA_PAGAMENTO -> FINALIZADO (planejado)
 ```
+
+`PAGO` e `CANCELADO` são estados terminais. O pagamento só pode ser registrado após `CONFIRMADO_CLINICA`, e `CANCELADO` só pode ser definido antes de um estado terminal. As transições de `PENDENCIA_PAGAMENTO` e `FINALIZADO` são uma extensão planejada e não autorizam transições de saída de `PAGO`. `AGUARDANDO_PAGAMENTO` e `ESTORNO_SOLICITADO` não fazem parte do contrato deste projeto; não os usar como estados ou aliases.
 
 ##### 2.2 Tabela de Definição de Estados (`StatusBadge.jsx`)
 
@@ -113,9 +107,13 @@
 * [ ] O modal `AuthModal.jsx` no modo Paciente inclui o botão funcional "Entrar com o Google".
 * [ ] O componente `AppointmentCard.jsx` disponibiliza a ação de envio de mensagens via WhatsApp com os modelos de Confirmação, Lembrete e Boleto/PIX.
 * [ ] A rota `/dashboard/financeiro` contabiliza separadamente os valores realizados e os valores sob o status `PENDENCIA_PAGAMENTO`.
-* [ ] A máquina de estados em `appointmentService.js` valida e restringe as transições permitidas para garantir a integridade dos dados.
+* [x] A máquina de estados em `appointmentService.js` valida e restringe as transições permitidas para garantir a integridade dos dados.
 * [ ] Nenhum emoji é utilizado na interface dos cards, modais ou badges de status, em conformidade com o `AGENTS.md`.
 
 ---
 
 **Status desta spec: PLANEJADO.** A SPEC-07 reutiliza o `AuthModal` contextual da SPEC-04 para acrescentar Google Auth e complementa o fluxo web de agendamento da SPEC-06. Não representa autenticação real nem integração real de backend nesta fase mock-first.
+
+### Acompanhamento posterior relacionado à agenda
+
+O cálculo de data local usado para identificar “hoje” na agenda da clínica está mapeado em EVOL-010. A correção deverá definir fuso de referência e critérios de aceite em SPEC própria, sem ampliar esta SPEC de cobrança e integrações.

@@ -210,6 +210,12 @@ Cada item adicionado à **Lista de Exames** segue a estrutura de dados abaixo:
 
 * [x] Critérios de aceite da Seção 4 conferidos e concluídos.
 * [x] Cabeçalho atualizado para `Status: CONCLUÍDO` com data de conclusão.
-* [x] PRD do paciente e arquitetura de catálogo sincronizados; roadmap atualizado com EVOL-002 e EVOL-004.
+* [x] PRD do paciente e arquitetura de catálogo sincronizados; roadmap sincronizado com EVOL-002, EVOL-004 e os débitos posteriores relacionados.
 
 **Status desta spec: CONCLUÍDO.** O fluxo web de busca para terceiros, carrinho e solicitação mock está implementado. Geocodificação por API, integração backend e experiência mobile permanecem em frentes futuras do roadmap.
+
+### Acompanhamento posterior (fora do escopo concluído)
+
+- Revisar as mensagens de convênio de `ExamCartItem` para refletir a busca para terceiros, conforme EVOL-009. A copy deve falar da oferta do serviço e da seleção do beneficiário, sem pressupor convênios do perfil do paciente.
+- A normalização da arquitetura e das referências documentais está rastreada em EVOL-013 e `docs/prd/Arquitetura de catalogo e dados.txt`.
+- Estes ajustes de manutenção não alteram o contrato mock nem reabrem os critérios funcionais concluídos da SPEC-06; a implementação deverá ser detalhada em SPEC própria quando priorizada.

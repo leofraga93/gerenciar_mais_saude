@@ -1,6 +1,6 @@
 ### Checklist - Landing Page Hub (Clínicas + Pacientes)
 Base de comparação: `docs/AGENTS.md`, SPEC-04 e roadmap do projeto.
-Roadmap transversal de evolução: `docs/prd/roadmap-evolucao.md` (itens EVOL-001 a EVOL-005; Google Auth e integrações via WhatsApp aguardam EVOL-005 junto à API/backend).
+Roadmap transversal de evolução: `docs/prd/roadmap-evolucao.md` (itens EVOL-001 a EVOL-013; Google Auth e integrações via WhatsApp aguardam EVOL-005 junto à API/backend).
 
 **Decisão de experiência:** a rota `/` inicia neutra e convidativa, com promessa institucional, escolha explícita entre Paciente e Clínica e elementos globais compartilhados. A escolha troca a área principal por uma experiência B2C ou B2B dedicada. Busca para terceiros e agendamento no site pertencem à SPEC-06; Google Auth pertence à SPEC-07; credenciamento da clínica pertence à SPEC-05.
 
@@ -20,10 +20,10 @@ Roadmap transversal de evolução: `docs/prd/roadmap-evolucao.md` (itens EVOL-00
 ##### 2.1 Hub Neutro de Decisão Fluída (`activeNiche = 'NONE'`)
 *  [x] **Hero Selector Neutro (`NeutralHeroSelector.jsx`):** Tela inicial limpa e fluída apresentando a proposta de valor unificada e dois cards de decisão explícita: **"Sou Paciente"** vs **"Sou Clínica"**.
 *  [x] **Conteúdo neutro compartilhado:** Cabeçalho fixo e translúcido, marca clicável para a página inicial, hero com imagem ampla, promessa unificada, dois cards de escolha e métricas demonstrativas com aviso de atualização futura. Não exibir catálogo, preços, depoimentos segmentados ou chamadas de agendamento antes da escolha.
-*  [x] **Métricas da landing neutra:** Apresenta `120+`, `94%` e `4.8/5` como valores ilustrativos; inclui aviso de que serão atualizados quando houver base consolidada. A integração de dados fica para etapa posterior.
+*  [x] **Métricas da landing neutra:** Apresenta `120+`, `94%` e `4.8/5` como valores ilustrativos; inclui aviso de que serão atualizados quando houver base consolidada. A integração de dados fica para etapa posterior. As alegações numéricas na visão clínica são acompanhadas em EVOL-009.
 *  [x] **Imagens de cada audiência:** Hero neutro em imagem Unsplash ampla, e heros próprios com imagens contextuais para Paciente e Clínica, com sobreposição para preservar legibilidade.
 *  [x] **Marca no cabeçalho:** Logo, nome e assinatura institucional compõem um único link para `/`; ao clicar, limpa o nicho salvo e retorna ao estado neutro, sem query `nicho`.
-*  [x] **Títulos das seções:** As visões neutra e de clínica não usam eyebrows decorativos; os títulos descrevem diretamente o conteúdo da seção.
+*  [x] **Títulos das seções:** As visões neutra, de paciente e de clínica e o modal de acesso não usam eyebrows decorativos; os títulos descrevem diretamente o conteúdo.
 *  [x] **Ativação Dinâmica de Nicho:** O estado `activeNiche` (`'NONE'` | `'PATIENT'` | `'CLINIC'`) transita a interface sem recarregar a página.
 *  [x] **Chave Seletora no Cabeçalho (`NicheSegmentedControl.jsx`):** Permite alternar entre as visões de Paciente e Clínica a qualquer momento no topo da página.
 *  [x] **Suporte a Parâmetros de URL & Persistência:** Leitura automática de `?nicho=paciente` ou `?nicho=clinica` e persistência temporária da escolha no `sessionStorage` (`gms_selected_niche`).
@@ -32,7 +32,7 @@ Roadmap transversal de evolução: `docs/prd/roadmap-evolucao.md` (itens EVOL-00
 *  [x] **Busca de Exames por Nome e Código TUSS:** Campo de busca direta na vitrine B2C.
 *  [x] **Localização Customizada para Terceiros (`LocationSearchInput.jsx`, SPEC-06, Etapa 5):** Permite escolher região de referência em lista local para buscar e agendar exames para parentes em outras regiões. Coordenadas são demonstrativas; geocodificação de endereço/CEP é futura.
 *  [x] **Vitrine B2C de Exames & Filtros Multi-critério:** Filtros por categoria, convênios (pills esmeralda) e faixa de valor interativa (`PriceRangeFilter.jsx`).
-*  [x] **CTAs Contextualizados B2C:** Botão primário **"Cadastre-se"** (`/cadastro-paciente`) e botão secundário **"Entrar"** (abre `AuthModal` no contexto Paciente). O botão Google é acrescentado na SPEC-07.
+*  [x] **CTAs Contextualizados B2C:** Botão primário **"Cadastre-se"** (`/cadastro-paciente`) e botão secundário **"Entrar"** (abre `AuthModal` no contexto Paciente). O botão Google é acrescentado na SPEC-07. Os destinos dos links de privacidade são acompanhados em EVOL-011.
 
 ##### 2.3 Visão Segmentada B2B — Clínica (`activeNiche = 'CLINIC'`)
 *  [x] **Proposta de Valor B2B:** Foco em redução de *no-show*, gestão de agenda e liquidação digital.
@@ -79,7 +79,7 @@ Na SPEC-04, o carrossel não aparece no estado neutro. A visão Paciente exibe a
 #### 4) O que está em preparação & Análise de Novas Funcionalidades
 ##### 4.1 Próximos Passos Imediatos
 *  [x] Implementação do Hub Neutro e Seleção de Nicho (`SPEC-04`).
-*  [ ] Integração do agendamento web e busca para terceiros (`SPEC-06`), conectada ao ponto de extensão do catálogo B2C.
+*  [x] Integração do agendamento web e busca para terceiros (`SPEC-06`), conectada ao ponto de extensão do catálogo B2C.
 *  [ ] Integração com botão **"Entrar com o Google"** (`SPEC-07`) no `AuthModal` contextual criado/adaptado pela SPEC-04.
 *  [ ] Integração do formulário de acesso com backend de autenticação real (JWT / Token).
 
@@ -88,5 +88,5 @@ Na SPEC-04, o carrossel não aparece no estado neutro. A visão Paciente exibe a
 #### 5) Mapa Rápido de Status (Visão Executiva)
 *   **Atende:** Base visual e conversão dual, CTAs duplos, modal inteligente, faixa passo a passo em 4 etapas, catálogo público com busca multi-critério (Categoria + Convênio + Faixa de Valor), carrossel de depoimentos e rodapé Dark Theme.
 *   **Concluído:** Hub neutro e visões segmentadas (`SPEC-04`).
-*   **Planejado:** Credenciamento (`SPEC-05`); localização, lista e agendamento web (`SPEC-06`); integrações externas Google Auth e WhatsApp em EVOL-005, depois do planejamento de API/backend em EVOL-002.
+*   **Planejado:** credenciamento (`SPEC-05`) e integrações externas Google Auth e WhatsApp em EVOL-005, depois do planejamento de API/backend em EVOL-002. O fluxo web da SPEC-06 está concluído; pendências de copy, dados e manutenção estão rastreadas em EVOL-007..013.
 *   **Fora desta sequência mock-first:** API real de autenticação.

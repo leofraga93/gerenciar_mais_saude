@@ -1,73 +1,74 @@
-Ambiente configurado. Como seu Tech Lead, entendo que a definição precisa do catálogo de serviços é o que separa um marketplace de saúde genérico de uma ferramenta de alta conversão. Em **Lauro de Freitas**, que é um polo de saúde vibrante na Região Metropolitana de Salvador, a competitividade entre clínicas de imagem, laboratórios e policlínicas é alta.
+# Arquitetura de catálogo e dados (fase mock-first)
 
-Para que a implementação seja eficiente e facilite a escolha do paciente, o catálogo não deve ser apenas um campo de texto, mas uma estrutura de dados categorizada.
+**Finalidade:** registrar o modelo atual do catálogo, da vitrine e do fluxo de solicitação de exames no front-end. Este documento descreve o comportamento mock vigente; não é uma especificação de backend nem autoriza criar API ou banco de dados.
 
-### 1. Mapeamento de Serviços Principais (Referência: Lauro de Freitas)
+**Referências:** AGENTS.md, SPEC-05, SPEC-06 e `docs/prd/roadmap-evolucao.md` (em especial EVOL-002, EVOL-006 e EVOL-013).
 
-Baseado no perfil das grandes redes e clínicas locais da região (como as situadas na Estrada do Coco e Vilas do Atlântico), os serviços devem ser divididos nas seguintes categorias principais:
+## 1. Categorias de serviços
 
-*   **Análises Clínicas (Laboratório):** Hemograma completo, Glicemia em jejum, Colesterol (Perfil Lipídico), Sumário de Urina e Exame de Fezes.
-*   **Diagnóstico por Imagem:** Ultrassonografia (Abdominal, Transvaginal, Obstétrica), Raio-X (Tórax, Coluna), Ressonância Magnética, Tomografia Computadorizada e Mamografia Digital.
-*   **Exames Cardiológicos:** Eletrocardiograma (ECG), Ecocardiograma, MAPA e Holter 24h.
-*   **Consultas Especializadas:** Ginecologia, Pediatria, Ortopedia, Dermatologia e Cardiologia.
-*   **Outros Procedimentos:** Preventivo (Papanicolau), Audiometria e Endoscopia Digestiva.
+Os identificadores usados no formulário e no catálogo são definidos em `src/constants/catalogConstants.js`: `laboratorio`, `imagem`, `cardiologia`, `consultas` e `outros`. O snapshot do carrinho e do agendamento usa os códigos de integração `LAB`, `IMG`, `CARDIO`, `CONSULT` e `OUTROS`; os serviços fazem a conversão entre os formatos.
 
----
+Exemplos de ofertas incluem exames laboratoriais, diagnóstico por imagem, exames cardiológicos, consultas e outros procedimentos. Os dados demonstrativos ficam em `src/data/*.js`.
 
-### 2. Estrutura de Dados Necessária (Campos de Cadastro)
+## 2. Campos de uma oferta de serviço
 
-Para facilitar a regra de solicitação do paciente e a futura integração com o banco de dados PostgreSQL, cada serviço cadastrado pela clínica deve conter os seguintes campos:
+O serviço cadastrado pela clínica é descrito pelos campos definidos na SPEC-05 e pelas estruturas do catálogo atual:
 
-| Campo | Tipo de Dado | Finalidade para o Paciente |
-| :--- | :--- | :--- |
-| **Nome do Serviço** | String (Varchar) | Identificação direta do que ele busca (ex: "Ultrassom Abdominal Total"). |
-| **Categoria** | Enum (Lista) | Filtro rápido por tipo (Laboratório, Imagem, Consulta). |
-| **Código TUSS** | String (Opcional) | Padrão da ANS; essencial para quem usa convênio identificar a cobertura exata. |
-| **Valor Particular** | Decimal/Money | Transparência para pacientes sem plano de saúde. |
-| **Lista de Convênios** | Array/Collection | Filtro crítico: o app só mostra a clínica se ela aceitar o plano do paciente. |
-| **Descrição/Preparo** | Text | Orientações como "Jejum de 12h" ou "Beber 4 copos de água". |
-| **Duração Estimada** | Integer (Minutos) | Ajuda o paciente a planejar o tempo de permanência na clínica. |
-| **Status (Ativo/Inativo)**| Boolean | Permite que a clínica pause a oferta de um exame sem precisar excluí-lo. |
-
----
-
-### 3. Insights do Sênior para a Regra de Negócio
-
-Como estamos focando em **Lauro de Freitas**, um ponto de falha comum que precisamos evitar é a ambiguidade. Aqui estão as diretrizes técnicas para garantir uma boa entrega:
-
-1.  **A importância do Código TUSS:** Embora seja um campo técnico, incluí-lo no cadastro da clínica (como opcional) permite que o paciente busque pelo código que consta na sua guia médica, eliminando erros de marcação.
-2.  **Preparação como Gatilho de UX:** No momento em que o paciente seleciona um serviço, o campo de "Descrição/Preparo" deve ser exibido imediatamente. Isso reduz cancelamentos por pacientes que chegam à clínica sem o preparo adequado (ex: sem jejum).
-3.  **Relacionamento N:N (Serviço x Convênio):** Lembre-se que uma clínica pode aceitar Bradesco para um "Hemograma", mas não aceitar para uma "Ressonância" devido ao custo. Por isso, a seleção de convênios deve ser feita **por serviço** e não apenas no perfil geral da clínica.
-4.  **Localização (Latitude/Longitude):** Para o mercado de Lauro de Freitas, onde o trânsito na Estrada do Coco é um fator decisivo, a geolocalização deve ser precisa para que o paciente escolha a clínica mais acessível ao seu trajeto.
-
-**Podemos seguir com a criação do componente de "Formulário de Cadastro de Serviço" utilizando estes campos, ou prefere que eu gere primeiro a lista de convênios mestre (insurances.js) para popular o sistema?**
-
----
-
-### 5. Mapeamento atual da vitrine para o carrinho (SPEC-06)
-
-No fluxo web mock, os cards da vitrine continuam usando `STANDARD_PROCEDURES_CATALOG` (`src/data/standardCatalog.js`). Para adicionar um item ao carrinho, `PatientNicheView.jsx` localiza uma oferta clínica correspondente em `MOCK_SERVICES_CATALOG` (`src/data/catalogData.js`), primeiro por código TUSS e depois por nome. Sem oferta associada, a ação fica indisponível; não é criado vínculo fictício.
-
-| Campo do carrinho | Origem mock |
+| Campo | Uso |
 | --- | --- |
-| `examId`, `examName`, `category`, `tussCode` | `id`, `name`, `category`, `tussCode` do catálogo padrão; categorias são convertidas para `LAB`, `IMG`, `CARDIO`, `CONSULT` ou `OUTROS`. |
-| `privatePrice`, `descriptionPrep`, `insuranceIds` | Valor, preparo e convênios da oferta clínica correspondente em `MOCK_SERVICES_CATALOG`; os IDs legados sem prefixo são convertidos para o formato oficial `ins-*`. |
-| `clinicId`, `clinicName`, `clinicAddress`, `clinicNeighborhood`, `clinicRating`, `serviceId` | Oferta correspondente no catálogo mock, incluindo dados da clínica associada. |
-| `selectedDate`, `selectedTimeSlot`, `selectedPeriod`, `paymentType`, `selectedInsuranceId` | Date/time and period-filter snapshot per list item; payment initializes to an option offered by the clinic, using the selected landing filter when applicable. |
+| `name` | Nome legível do exame ou serviço. |
+| `category` | Identificador padronizado da categoria. |
+| `tussCode` | Código TUSS opcional, quando aplicável. |
+| `privatePrice` | Valor particular em reais. |
+| `descriptionPrep` | Instruções de preparo do paciente. |
+| `insuranceIds` | IDs oficiais dos convênios aceitos para aquela oferta. |
+| `status` | Estado da oferta/moderação conforme o fluxo de credenciamento. |
 
-Os horários selecionáveis são fixtures por clínica em `src/data/clinicAvailability.js`, limitados aos dias ativos de `DEFAULT_OPERATING_DAYS` em `src/data/clinicProfileData.js`. A interface publica apenas os slots listados para os próximos 30 dias; horários anteriores ao momento atual não aparecem para a data de hoje. Essa fixture prepara o contrato e a UX, sem representar reserva concorrente nem integração de agenda em banco.
+Duração estimada pode ser adicionada somente quando houver requisito de produto e contrato definidos em spec própria; não é pressuposta pelo fluxo atual.
 
-### 6. Busca local de localização e ordenação (SPEC-06, Etapa 5)
+## 3. Relacionamento entre serviços e convênios
 
-`src/data/locationCatalog.js` mantém as regiões mock usadas pelo `LocationSearchInput.jsx`: Centro e Vilas do Atlântico, Estrada do Coco, Pituba e Centro de Salvador. As coordenadas são aproximadas e servem somente para ordenar demonstrações pela distância de Haversine; não são geocodificação de endereços reais. A interface começa no Centro de Lauro de Freitas e permite escolher regiões reconhecidas pela lista local. Entradas arbitrárias de endereço e CEP ainda não podem ser convertidas em coordenadas; essa substituição está registrada no TODO do catálogo e na SPEC-06. Em distância equivalente até 1 metro, prevalece a maior avaliação (`rating`).
+A relação é muitos-para-muitos: cada serviço mantém sua própria lista `insuranceIds[]`. Não se deve inferir que um convênio aceito pela clínica vale para todos os serviços.
 
-### 7. Pedido de agendamento em lote (SPEC-06, Etapa 6)
+Os IDs oficiais vêm de `src/data/insurances.js`. Fixtures antigas em `MOCK_SERVICES_CATALOG` podem usar IDs sem prefixo; o fluxo atual os normaliza para os IDs oficiais `ins-*`. A elegibilidade do beneficiário depende da futura API e está no escopo de EVOL-002.
 
-`createAppointmentOrder` in `src/services/appointmentService.js` revalidates the clinic offer, date, time, and payment option against the service offering (without filtering by the patient profile, because requests may be for third parties), then creates a shared `orderId`. Each appointment is stored with status `SOLICITADO`; `usePatientAppointments` filters by patient and `PatientRecentOrdersCard.jsx` groups by order. `OrderSummaryModal.jsx` totals only private payments and groups preparation notes. Mock clinics are active/approved for this demonstration; availability does not prevent concurrent reservations.
+## 4. Fontes de dados e responsabilidades
 
+- `src/data/standardCatalog.js` fornece `STANDARD_PROCEDURES_CATALOG`, a lista padrão de procedimentos exibida na vitrine.
+- `src/data/catalogData.js` fornece `MOCK_SERVICES_CATALOG`, as ofertas mock associadas a clínicas.
+- `src/data/insurances.js` fornece os convênios oficiais.
+- `src/services/*.js` encapsula operações e persistência mock.
+- Operações assíncronas do front-end devem ser consumidas por hooks TanStack Query, conforme AGENTS.md. Essa camada é usada também na fase mock-first e poderá chamar serviços conectados à API na evolução EVOL-002; não substitui o backend.
 
-### 8. Filtros e lista de exames (SPEC-06)
+A vitrine não deve inventar vínculo entre um procedimento padrão e uma oferta clínica. `PatientNicheView.jsx` procura uma oferta correspondente primeiro pelo código TUSS e depois pelo nome. Sem correspondência, a ação de solicitar fica indisponível.
 
-O filtro de convenio e as opcoes de pagamento usam a oferta em `MOCK_SERVICES_CATALOG.insurances`, convertida para IDs oficiais `ins-*`. O catalogo padrao nao deve anunciar cobertura que nao esteja na oferta mock associada da clinica. Nesta fase, a lista pode ser usada para solicitar exames para terceiros; o perfil de convenios do paciente nao restringe quais ofertas aparecem. Elegibilidade do beneficiario sera validada pela API/backend em EVOL-002.
+## 5. Modelo do item no carrinho
 
-O periodo e filtrado na landing: `MANHA` (00:00-11:59), `TARDE` (12:00-17:59) e `NOITE` (18:00-23:59). A escolha acompanha cada item e restringe os slots no painel. O card abre a configuracao lateral do exame; `Adicionar Exame` salva o item, mostra estados de carregamento e sucesso e fecha o painel. Apos login/cadastro mock, a lista em `sessionStorage` retorna aberta na landing para revisao e confirmacao explicita; autenticar nao submete o pedido.
+O item combina dados do procedimento padrão e da oferta clínica correspondente:
+
+| Dados | Origem |
+| --- | --- |
+| `examId`, `examName`, `category`, `tussCode` | Catálogo padrão; a categoria é convertida para o código de integração do carrinho. |
+| `privatePrice`, `descriptionPrep`, `insuranceIds` | Oferta da clínica correspondente; IDs legados são normalizados quando necessário. |
+| `clinicId`, `clinicName`, endereço, avaliação e `serviceId` | Oferta mock associada à clínica. |
+| Data, horário, período, modalidade de pagamento e convênio selecionado | Escolhas do paciente mantidas no snapshot daquele item. |
+
+A seleção de convênio considera a oferta do serviço, não o perfil do paciente. A busca da SPEC-06 pode ser usada para terceiros; por isso a cobertura do perfil do titular não deve filtrar a vitrine nem determinar a oferta.
+
+## 6. Localização mock e ordenação
+
+`src/data/locationCatalog.js` fornece regiões demonstrativas consumidas por `LocationSearchInput.jsx`. As coordenadas são aproximadas e servem para ordenar resultados por distância usando Haversine; não representam geocodificação de endereços reais.
+
+A experiência permite escolher regiões da lista local. Busca por endereço ou CEP arbitrário e geocodificação por API ficam para EVOL-002. Em distâncias equivalentes dentro da tolerância definida pela SPEC-06, a avaliação da clínica serve como desempate.
+
+## 7. Disponibilidade e solicitação em lote
+
+`src/data/clinicAvailability.js` contém horários demonstrativos por clínica e considera os dias ativos de `DEFAULT_OPERATING_DAYS`, em `src/data/clinicProfileData.js`. A interface apresenta horários futuros disponíveis na fixture, incluindo a regra para não oferecer horários passados no dia atual.
+
+`createAppointmentOrder`, em `src/services/appointmentService.js`, revalida a oferta, data, horário e opção de pagamento contra os dados mock. A solicitação em lote recebe um `orderId` compartilhado e cada agendamento começa em `SOLICITADO`. O mock não reserva disponibilidade de forma concorrente nem garante exclusividade de horário.
+
+## 8. Filtros da vitrine e evolução
+
+Os filtros da SPEC-06 usam as categorias, regiões e convênios disponíveis nas ofertas mock. O catálogo padrão não deve anunciar cobertura que não exista na oferta clínica associada. As solicitações para terceiros não são restringidas pelos convênios do perfil do paciente.
+
+Os serviços demonstrativos permanecem visíveis nesta fase. A moderação das ofertas reais para mostrar somente clínicas aprovadas está adiada em EVOL-006 até que a vitrine consuma serviços vinculados a cadastros persistidos. API, autenticação real, persistência centralizada, geocodificação e validação de elegibilidade pertencem ao planejamento futuro de EVOL-002 e exigem specs próprias.
