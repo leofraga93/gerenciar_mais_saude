@@ -14,7 +14,6 @@ function ClinicNicheView({ onOpenAuth, onGoToSignup }) {
         <div className="absolute inset-0 -z-10 bg-gradient-to-r from-slate-950/90 via-slate-900/75 to-blue-950/50" aria-hidden="true" />
         <div className="mx-auto grid max-w-6xl items-center gap-10 px-6 py-16 md:grid-cols-12 md:px-10 md:py-20">
           <div className="space-y-6 md:col-span-8">
-            <p className="text-sm font-semibold uppercase tracking-[0.14em] text-blue-200">Para clínicas e consultórios</p>
             <h1 className="max-w-3xl text-4xl font-bold leading-tight tracking-tight md:text-5xl">
               Mais organização para sua equipe. Mais clareza para seus pacientes.
             </h1>

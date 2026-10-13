@@ -12,6 +12,7 @@ Este documento contém as **regras permanentes e inegociáveis** do projeto *Ger
   - Toda persistência atual deve ser simulada localmente via `sessionStorage`, `localStorage` e serviços desacoplados em `src/services/*.js`.
   - Dados padrão devem residir em `src/data/*.js`.
   - **Sempre use TanStack Query**: Todas as operações assíncronas de leitura e mutação devem ser encapsuladas em hooks com TanStack Query (`useQuery`, `useMutation` com invalidação ou atualização otimista de cache via `queryKey`).
+  - Frentes transversais futuras (expansão de tipos de organização, evolução para backend e melhoria de bundle) ficam rastreadas em `docs/prd/roadmap-evolucao.md`; esse roadmap não altera o escopo da SPEC ativa nem autoriza backend.
 
 ---
 
@@ -48,6 +49,7 @@ Este documento contém as **regras permanentes e inegociáveis** do projeto *Ger
 ---
 
 ## 4. Máquina de Estados e Regras de Negócio de Agendamentos
+- **Contrato vigente do mock**: `SOLICITADO`, `CONFIRMADO_CLINICA`, `PAGO` e `CANCELADO`. `PENDENCIA_PAGAMENTO` e `FINALIZADO` são uma extensão planejada na SPEC-07 e só passam a integrar o contrato ativo quando sua implementação for aprovada e concluída. `AGUARDANDO_PAGAMENTO` e `ESTORNO_SOLICITADO` não são estados nem aliases deste projeto.
 - **Cores Oficiais dos Estados (Tailwind)**:
   - `SOLICITADO`: Azul (`blue-500` / `bg-blue-50 text-blue-700 border-blue-200`).
   - `CONFIRMADO_CLINICA`: Amarelo/Âmbar (`amber-500` / `bg-amber-50 text-amber-700 border-amber-200`).
@@ -65,10 +67,10 @@ Este documento contém as **regras permanentes e inegociáveis** do projeto *Ger
 ## 5. Estrutura de Catálogo, Procedimentos e Convênios
 - **Relacionamento N:N (Serviço x Convênio)**:
   - A seleção de convênios aceitos deve ser feita **por serviço** (`insuranceIds[]`), nunca como configuração genérica da clínica.
-  - **Multi-select dinâmico**: Seleção deve sempre vincular IDs oficiais de `src/data/insurances.js` (ex.: `unimed`, `bradesco`, `cassi`, `particular`), nunca strings livres.
+  - **Multi-select dinâmico**: `insuranceIds[]` usa os IDs oficiais de `src/data/insurances.js` (ex.: `ins-unimed`, `ins-bradesco`, `ins-cassi`, `ins-particular`), nunca strings livres. Fixtures legadas com IDs sem prefixo devem ser normalizadas na fronteira de leitura antes de chegarem ao serviço, carrinho ou pedido.
 - **Campos Obrigatórios de Procedimento**:
   - `name`: Nome legível do exame/consulta.
-  - `category`: Categoria padronizada de `catalogConstants.js` (`LAB`, `IMG`, `CARDIO`, `CONSULT`, `OUTROS`).
+  - `category` do serviço/catálogo usa os IDs de `SERVICE_CATEGORIES` em `src/constants/catalogConstants.js`: `laboratorio`, `imagem`, `cardiologia`, `consultas`, `outros`. O snapshot de item do carrinho converte para os códigos `LAB`, `IMG`, `CARDIO`, `CONSULT`, `OUTROS`; converta de volta ao domínio de serviço ao criar o agendamento.
   - `privatePrice`: Valor particular (R$).
   - `descriptionPrep`: Instruções de preparo (ex.: "Jejum de 12h"). **Gatilho de UX crítico para evitar no-show**.
   - `tussCode`: Opcional, formato padrão ANS (6 a 8 dígitos numéricos).

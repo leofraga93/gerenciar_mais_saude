@@ -236,3 +236,7 @@
 * [x] 1. Critérios de Aceite cumpridos e verificados via linter e build.
 * [x] 2. Cabeçalho atualizado para `Status: CONCLUÍDO` com data de conclusão registrada.
 * [x] 3. Sincronização executada com o documento PRD `docs/prd/checklist-home-patiente.md`.
+
+### Acompanhamento posterior de privacidade
+
+A revisão dos dados pessoais persistidos no cadastro e dos destinos de Termos de Uso/Política de Privacidade está mapeada em EVOL-011. A definição deve ser detalhada em SPEC própria de privacidade/cadastro antes de implementação; esta referência não declara conformidade legal.

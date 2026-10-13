@@ -11,9 +11,6 @@ function NeutralHeroSelector({ onSelectNiche }) {
       <div className="absolute inset-0 -z-10 bg-gradient-to-r from-slate-950/80 via-slate-900/55 to-slate-900/20" aria-hidden="true" />
       <div className="mx-auto grid w-full max-w-6xl items-center gap-10 px-6 py-16 md:grid-cols-12 md:px-10 md:py-24">
         <div className="space-y-6 md:col-span-7">
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-emerald-200">
-            Gerenciar Mais Saúde
-          </p>
           <h1 className="max-w-2xl text-4xl font-bold leading-tight tracking-tight text-white md:text-6xl">
             Cuidar começa com uma boa conexão.
           </h1>

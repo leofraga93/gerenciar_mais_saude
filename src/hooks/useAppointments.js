@@ -4,8 +4,9 @@ import {
   getAppointments,
   updateAppointmentStatus,
 } from '../services/appointmentService'
+import { appointmentsQueryKey } from '../constants/appointmentQueryKeys'
 
-export const APPOINTMENTS_QUERY_KEY = ['appointments']
+export const APPOINTMENTS_QUERY_KEY = appointmentsQueryKey
 
 /** Leitura dos agendamentos mock. */
 export function useAppointments() {

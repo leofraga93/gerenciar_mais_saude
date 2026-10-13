@@ -1,9 +1,9 @@
 ### Checklist - Credenciamento do Paciente, Agendamento Web e Evolução Mobile
 Base de comparação: docs/checklist-landing-page.md, SPEC-06, SPEC-07 e requisitos de negócio B2B2C.
-Roadmap transversal de evolução: `docs/prd/roadmap-evolucao.md` (itens EVOL-001 a EVOL-005; geocodificação em EVOL-002, Google Auth e WhatsApp em EVOL-005).
+Roadmap transversal de evolução: `docs/prd/roadmap-evolucao.md` (itens EVOL-001 a EVOL-013; geocodificação em EVOL-002, Google Auth e WhatsApp em EVOL-005).
 **Escopo desta fase:** Front-end visual + Mock Data + Reaproveitamento de componentes e utilitários.
 **Fora de escopo agora:** Banco de dados PostgreSQL, fetch/axios real, integração com API Spring Boot, persistência de token backend.
-**Última revisão:** 2026-10-10 — SPEC-06 concluída para fluxo web mock (lista de exames, localização local, submissão em lote, resumo e consulta do paciente); integrações externas Google Auth e WhatsApp adiadas para EVOL-005.
+**Última revisão:** 2026-10-13 — SPEC-04 e SPEC-06 sincronizadas como concluídas neste checklist; débitos posteriores de copy e dados estão rastreados em EVOL-007..013; integrações externas Google Auth e WhatsApp seguem em EVOL-005.
 
 --------------------------------------------------------------------------------
 
@@ -24,7 +24,7 @@ Landing neutra (/) ──► Visão Paciente ──► Vitrine / localização (
 
 #### 1) O que já temos (Concluído)
 *  [x] **Entrada atual:** Landing page com modal de acesso por abas (Clínica vs. Paciente) e redirecionamento mock para /paciente/inicio (src/pages/LandingPage.jsx).
-*  [ ] **Hub Neutro e Seleção de Nicho (SPEC-04):** A tela inicial apresenta uma proposta institucional e escolha explícita; depois exibe a visão B2C ou B2B correspondente.
+*  [x] **Hub Neutro e Seleção de Nicho (SPEC-04):** A tela inicial apresenta uma proposta institucional e escolha explícita; depois exibe a visão B2C ou B2B correspondente.
 *  [x] **Identidade Visual:** Padrão global de cores, tipografia e utilitários em src/index.css.
 *  [x] **Componente FormField:** Estrutura para rótulos, erros acessíveis e bordas vermelhas.
 *  [x] **Componente Toast:** Sistema de notificações flutuantes.
@@ -38,7 +38,8 @@ Landing neutra (/) ──► Visão Paciente ──► Vitrine / localização (
 **Decisão:** o primeiro fluxo de carrinho e solicitação de agendamentos será concluído no site. A integração equivalente ao App Mobile ocorrerá depois e não é pré-requisito para o fluxo web.
 ##### 2.1 Carrinho de Exames — Multi-Agendamento (`useExamCart.js` / `cartStore.js`)
 *  [x] **Inclusão de Múltiplos Exames:** Cada card abre a configuração pela ação "Solicitar agendamento". O botão "Adicionar Exame" confirma a inclusão, atualiza o contador vermelho e retorna à vitrine.
-*  [x] **Painel da Lista de Exames (`ExamCartDrawer.jsx`):** O ícone com contador acumulado abre a lista para revisar os exames, concluir a solicitação e remover itens. A ação "Concluir solicitação" abre `ExamRequestReviewModal.jsx`; o acesso/cadastro preserva a lista, que só é limpa após submissão mock bem-sucedida. A lateral apresenta resumo com edição; salvar atualiza o item existente. A revisão final precede o login/cadastro, que mantém a lista até o envio bem-sucedido.
+*  [x] **Painel da Lista de Exames (`ExamCartDrawer.jsx`):** O ícone com contador acumulado abre a lista para revisar os exames, concluir a solicitação e remover itens.
+ A ação "Concluir solicitação" abre `ExamRequestReviewModal.jsx`; o acesso/cadastro preserva a lista, que só é limpa após submissão mock bem-sucedida. A lateral apresenta resumo com edição; salvar atualiza o item existente. A revisão final precede o login/cadastro, que mantém a lista até o envio bem-sucedido.
 *  [x] **Componente Individual por Exame (`ExamCartItem.jsx`):**
     - Seletor de **Data e horário disponíveis** do exame antes de adicioná-lo à lista.
     - Filtro de **Período** na landing (`MANHA`, `TARDE`, `NOITE`); cada item recebe somente data e horário do período escolhido.

@@ -1,8 +1,9 @@
 ### SPEC-05: Credenciamento Completo da Clínica e Moderação Administrativa
 
-* **Status**: PLANEJADO  
-* **Data**: 2026-10-07  
-* **Documento PRD de Referência**: `docs/prd/checklist-home-clinicle.md`  
+* **Status**: EM ANDAMENTO
+* **Data**: 2026-10-07
+* **Última revisão**: 2026-10-12 (etapas 1–5 concluídas; EVOL-006 adiado)
+* **Documento PRD de Referência**: `docs/prd/checklist-home-clinicle.md`
 * **Especificação Mestre**: Reformulação do Credenciamento B2B e Trava de Aprovacao Admin (Item 2 do Mapeamento)
 
 ---
@@ -26,14 +27,13 @@
   * `/cadastro-clinica` (Wizard público de credenciamento B2B).
   * `/dashboard/*` (Portal administrativo da clínica logada).
 * **Arquivo(s) Alvo**:
-  * **Página / View**: `src/pages/ClinicSignupPage.jsx` e `src/pages/ClinicDashboardPage.jsx`
+  * **Página / View**: `src/pages/ClinicSignupPage.jsx`, `src/pages/clinic/ClinicDashboardPage.jsx` e `src/pages/clinic/ClinicProfilePage.jsx`
   * **Componentes**:
     * `src/components/clinic/ClinicSignupStepper.jsx` (Ajustado para 4 etapas com ícones e rótulos limpos).
     * `src/components/clinic/ClinicActionBanner.jsx` (Banner de alerta no topo do Dashboard com o estado de moderação).
     * `src/components/common/PasswordInput.jsx` (Reutilizado no formulário de senha da clínica).
   * **Utilitários de Validação**: `src/utils/clinicSignupValidation.js` (Inclusão de validação individual para Razão Social e Nome Fantasia, algoritmo de DV para CNPJ, e-mail e telefone).
-  * **Serviços / Storage**: `src/services/clinicService.js` (Gerenciamento do estado `statusAprovacao` e persistência em `gms_clinic_session`).
-  * **Hooks**: `src/hooks/useClinicProfile.js` (Integração via TanStack Query sob a chave `['clinic', 'profile']`).
+  * **Serviços / Storage**: `src/services/clinicService.js` (Gerenciamento do estado `statusAprovacao`, perfil e persistência mock); a sessão credenciada usa a chave `gms:clinic:registered`, definida em `src/constants/clinicStorage.js`.
 
 ---
 
@@ -83,8 +83,8 @@ Permitido (com banner de alerta)   BLOQUEADO (Invisível na vitrine)
    * Um banner fixo `ClinicActionBanner` é renderizado no topo do painel:  
      *"Cadastro em análise: Sua clínica e catálogo de exames estão sob verificação da administração da plataforma. Os exames ficarão visíveis para agendamento dos pacientes assim que o credenciamento for aprovado."*
 3. **Regra de Filtro da Vitrine Pública**:
-   * A API/Mock de busca de exames (`serviceCatalog.js` / `useServices`) filtra estritamente os serviços pertencentes a clínicas cujo `statusAprovacao === 'APROVADO'`.
-   * Se o status for `PENDENTE_APROVACAO_ADMIN`, `SUSPENSO` ou `REJEITADO`, os exames não são retornados nas buscas públicas.
+   * Quando a busca consumir serviços vinculados a cadastros de clínicas, deve retornar somente serviços de clínicas com `statusAprovacao === 'APROVADO'`.
+   * Enquanto a vitrine usar o catálogo mock demonstrativo sem vínculo com cadastros, preservar essas ofertas; o filtro por moderação está adiado em EVOL-006.
 
 ---
 
@@ -117,9 +117,9 @@ Permitido (com banner de alerta)   BLOQUEADO (Invisível na vitrine)
 * [ ] As etapas e os campos atuais do wizard permanecem funcionais; endereço/coordenadas seguem no fluxo vigente e as fotos continuam no perfil `/dashboard/perfil`, sem inclusão de novos campos dessas áreas no wizard.
 * [x] A submissão do credenciamento grava a clínica com o status `statusAprovacao: 'PENDENTE_APROVACAO_ADMIN'`.
 * [x] Ao acessar `/dashboard`, a clínica pendente visualiza o banner `ClinicActionBanner` informando que o cadastro está sob análise administrativa.
-* [ ] A busca pública de exames descarta clínicas com status `PENDENTE_APROVACAO_ADMIN`, exibindo na vitrine apenas exames de clínicas com status `APROVADO`.
-* [ ] O utilitário `clinicSignupValidation.js` valida o CNPJ por algoritmo de DV e mascara telefone e CNPJ adequadamente.
-* [ ] O componente `PasswordInput.jsx` é reutilizado no formulário de senha do credenciamento.
+* [ ] **Adiado (EVOL-006):** quando a busca consumir serviços vinculados a cadastros de clínicas, descartar clínicas sem status `APROVADO`, preservando as ofertas mock demonstrativas atuais.
+* [x] O utilitário `clinicSignupValidation.js` valida o CNPJ por algoritmo de DV e mascara telefone e CNPJ adequadamente.
+* [x] O componente `PasswordInput.jsx` é reutilizado nos campos de senha do credenciamento.
 * [ ] Nenhum emoji é utilizado na interface dos formulários ou modais, mantendo ícones vetoriais profissionais.
 
 ---
@@ -156,10 +156,10 @@ Este adendo consolida decisões posteriores e prevalece sobre trechos anteriores
 * [x] A rota `/admin/clinicas` é acessível somente com sessão mock administrativa.
 * [x] O painel lista clínicas cadastradas e permite aprovar, suspender e rejeitar cada uma, persistindo as mudanças mock.
 * [ ] Quando a busca consumir serviços de clínicas cadastradas, somente clínicas com `statusAprovacao: 'APROVADO'` terão seus serviços exibidos; o catálogo demonstrativo atual deve continuar disponível para apresentações.
-* [ ] Cadastro pendente e estados suspenso/rejeitado mantêm acesso ao portal e exibem aviso apropriado.
-* [ ] A checagem de CNPJ duplicado permanece explicitamente adiada à integração com a base persistida.
+* [x] Cadastro pendente e estados suspenso/rejeitado mantêm acesso ao portal e exibem aviso apropriado.
+* [x] A checagem de CNPJ duplicado permanece explicitamente adiada à integração com a base persistida.
 
-##### Definição ainda necessária antes da etapa 2
+##### Contrato definido para o acesso administrativo mock
 
 Contrato definido: o modal da landing valida o usuario `gerir_e_confiar` e a senha `admin500!`; em sucesso grava `gms_admin_authenticated` em `sessionStorage` e navega para `/admin/clinicas`. A rota verifica a sessao e redireciona para `/` quando ausente. A validacao e demonstrativa no frontend, nao seguranca real; autenticacao protegida pertence a etapa backend.
 
@@ -169,4 +169,10 @@ Etapas 1 (escopo), 2 (entrada admin), 3 (campos jurídicos separados), 4 (persis
 
 #### Status
 
-A SPEC-05 permanece EM ANDAMENTO até a retomada da etapa 6, a validação do filtro sobre serviços de clínicas cadastradas e a conferência final dos critérios de aceite.
+A SPEC-05 permanece EM ANDAMENTO. As etapas 1–5 estão concluídas; a etapa 6 está adiada como EVOL-006 até que a busca use serviços vinculados a cadastros de clínicas. Os critérios de aceite de preservação do wizard e de interface sem emojis ainda exigem conferência final.
+
+### Acompanhamento posterior (fora do escopo concluído)
+
+- A refatoração de `ClinicSignupPage` para reutilizar `FormField` e `formUtils` está mapeada em EVOL-007; a padronização de chamadas assíncronas com TanStack Query está em EVOL-008.
+- A mensagem de validação do nome fantasia e as alegações quantitativas da visão clínica estão em EVOL-009.
+- Esses itens são débitos de manutenção posteriores e não reabrem os critérios funcionais concluídos desta SPEC. A implementação deverá ter SPEC própria quando priorizada.

@@ -190,7 +190,7 @@ O clique na marca é a transição explícita de qualquer nicho para `NONE`: lim
 * [x] Clicar no link da marca a partir de qualquer nicho limpa a seleção persistida e retorna à landing neutra, removendo o parâmetro `nicho` da URL.
 * [x] O hero neutro ocupa uma área ampla com imagem Unsplash, texto e cards de escolha legíveis; paciente e clínica têm imagens contextuais em seus heros.
 * [x] A seção neutra apresenta `120+`, `94%` e `4.8/5` como valores demonstrativos e informa que a fonte será substituída após a integração de dados reais.
-* [x] A landing neutra e a visão de Clínica não usam eyebrows decorativos; os títulos identificam diretamente a seção e sua finalidade.
+* [x] As visões neutra, Paciente e Clínica e o modal de acesso não usam eyebrows decorativos; os títulos identificam diretamente o conteúdo.
 
 ## 7. Checklist do Gatekeeper (Auto-auditoria antes de codificar)
 
@@ -204,3 +204,7 @@ O clique na marca é a transição explícita de qualquer nicho para `NONE`: lim
 * [x] 1. Após lint e build positivos, marcar os critérios verificados da Seção 6 como concluídos.
 * [x] 2. Atualizar este cabeçalho para `Status: CONCLUÍDO` e preencher a data de conclusão.
 * [x] 3. Sincronizar o checklist e mapa executivo em `docs/prd/checklist-landing-page.md`.
+
+### Acompanhamento posterior (fora do escopo concluído)
+
+A revisão da alegação de redução de faltas em 38% e da nota fixa 4,9 na visão da clínica está mapeada em EVOL-009. Remoção ou fundamentação dessas afirmações deve ser especificada como manutenção de conteúdo, sem reabrir o escopo visual concluído da SPEC-04.
