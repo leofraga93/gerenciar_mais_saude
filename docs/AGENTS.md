@@ -1,4 +1,4 @@
-# AGENTS.md - Regras Operacionais e Diretrizes Globais do Projeto (Gerenciar Mais Saúde)
+﻿# AGENTS.md - Regras Operacionais e Diretrizes Globais do Projeto (Gerenciar Mais Saúde)
 
 Este documento contém as **regras permanentes e inegociáveis** do projeto *Gerenciar Mais Saúde*. Ele é carregado como contexto mestre de governança técnica, design e arquitetura para qualquer sessão de desenvolvimento.
 
@@ -49,19 +49,27 @@ Este documento contém as **regras permanentes e inegociáveis** do projeto *Ger
 ---
 
 ## 4. Máquina de Estados e Regras de Negócio de Agendamentos
-- **Contrato vigente do mock**: `SOLICITADO`, `CONFIRMADO_CLINICA`, `PAGO` e `CANCELADO`. `PENDENCIA_PAGAMENTO` e `FINALIZADO` são uma extensão planejada na SPEC-07 e só passam a integrar o contrato ativo quando sua implementação for aprovada e concluída. `AGUARDANDO_PAGAMENTO` e `ESTORNO_SOLICITADO` não são estados nem aliases deste projeto.
-- **Cores Oficiais dos Estados (Tailwind)**:
+- **Contrato de negócio aprovado**: `docs/specs/SPEC-09_Modelo_de_Cobranca_e_Maquinas_de_Estado.md`. A SPEC-08 foi substituída pela SPEC-09; não referenciar a SPEC-08 como fonte de regras.
+- **Duas máquinas independentes**: Agendamento (Máquina 1) e Lançamento da taxa / `feeLedger` (Máquina 2). Nunca misturar status de pagamento no enum do agendamento.
+- **Status operacional do agendamento** — compartilhado entre paciente, clínica e admin (mesmo enum nas três pontas): `SOLICITADO`, `CONFIRMADO_CLINICA`, `REALIZADO`, `NAO_COMPARECEU`, `CANCELADO`. Código novo não deve acrescentar `PAGO`, `PENDENCIA_PAGAMENTO`, `FINALIZADO`, `AGUARDANDO_PAGAMENTO` nem `ESTORNO_SOLICITADO` como status de agendamento.
+- **Status do lançamento da taxa (`feeLedger`)**: `EM_ANALISE`, `DEVIDA`, `COBRANCA_GERADA`, `PAGA`, `EM_ATRASO`, `ISENTA`.
+- **Cores Oficiais dos Estados do Agendamento (Tailwind)**:
   - `SOLICITADO`: Azul (`blue-500` / `bg-blue-50 text-blue-700 border-blue-200`).
   - `CONFIRMADO_CLINICA`: Amarelo/Âmbar (`amber-500` / `bg-amber-50 text-amber-700 border-amber-200`).
-  - `PAGO`: Verde Esmeralda (`emerald-600` / `bg-emerald-50 text-emerald-700 border-emerald-200`).
+  - `REALIZADO`: Verde Esmeralda (`emerald-600` / `bg-emerald-50 text-emerald-700 border-emerald-200`).
+  - `NAO_COMPARECEU`: Cinza (`slate-600` / `bg-slate-100 text-slate-700 border-slate-300`).
   - `CANCELADO`: Vermelho (`red-500` / `bg-red-50 text-red-700 border-red-200`).
-- **Lógica de Transições**:
+- **Lógica de Transições** (SPEC-09 §4.1):
   - A ação **"Confirmar Agendamento"** só é permitida quando o status for `SOLICITADO`.
-  - A ação **"Registrar Pagamento"** só é permitida após `CONFIRMADO_CLINICA`.
-  - **NUNCA** permita registrar pagamento diretamente do estado `SOLICITADO`.
-  - Estados `PAGO` e `CANCELADO` são terminais (não possuem ações de alteração posteriores).
-  - Transições devem ser centralizadas em funções puras (ex.: `getAvailableActions(status)`).
-
+  - **Check-in e conclusão são etapas separadas**: o check-in por token grava `checkedInAt` e habilita "Marcar realizado"; a transição para `REALIZADO` é uma ação explícita posterior da clínica.
+  - `REALIZADO` exige `checkedInAt` preenchido. Busca manual registrada como `checkInMethod: MANUAL`.
+  - Reversão `NAO_COMPARECEU` → `REALIZADO` permitida apenas por token (prova de guichê), registrada como `checkInMethod: MANUAL_REVERSAL` + `attendanceDispute: true`.
+  - **NUNCA** registre pagamento PIX do paciente nem transite agendamento para `PAGO`.
+  - `CANCELADO` é terminal no agendamento. `REALIZADO` e `NAO_COMPARECEU` não recebem estorno no próprio status.
+  - Transições devem ser centralizadas em funções puras (`getAvailableActions(status, role)` e `canTransition(from, to, role)`).
+  - **Confirmação do paciente** (`patientAttendance`): solicitada apenas para agendamentos com data passada que ainda estejam em `CONFIRMADO_CLINICA`. Se a clínica já marcou `REALIZADO`, o paciente não é questionado.
+  - Taxa da plataforma: R$ 5,00 por par `orderId` + `clinicId` ao atingir estado cobrável (`REALIZADO` por padrão). Cobrada à clínica via boleto semanal emitido pela admin em `/admin/cobrancas`. Convênio não isenta a taxa. Estorno pertence ao boleto semanal e somente no modo `FULL_AMOUNT` (Fase B).
+- Google Auth e WhatsApp continuam na SPEC-07 / EVOL-005 e não fazem parte da máquina de agendamento.
 ---
 
 ## 5. Estrutura de Catálogo, Procedimentos e Convênios
@@ -125,6 +133,8 @@ Antes de considerar qualquer modificação de código concluída:
 - **Respeito Estrito ao Anti-Escopo**:
   - Todo item listado na seção "Anti-Escopo" da spec ativa é uma restrição absoluta. A inclusão de qualquer item do anti-escopo constitui falha crítica de entrega.
 
+- **Fonte da Verdade da API (`docs/api/openapi.yaml`)**:
+  - O arquivo `docs/api/openapi.yaml` é a **fonte da verdade da API** entre frontend e backend. Toda e qualquer alteração de endpoints, contratos, payloads ou códigos de erro deve começar obrigatoriamente por ele antes de ser refletida no código ou em specs técnicas (como a SPEC-10). Enquanto o backend não residir em repositório próprio, o arquivo permanece versionado neste repositório do front; caso o backend seja movido no futuro, uma única cópia deve permanecer como fonte da verdade e a outra deve apenas referenciá-la.
 ---
 
 ## 10. Protocolo de Fechamento de Ciclo e Rastreabilidade (Done & Sync)

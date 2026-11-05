@@ -1,10 +1,12 @@
 ### SPEC-07: Cobrança Flexível, Sinalização de Pendência e Integrações (Google & WhatsApp)
 
-* **Status**: PLANEJADO  
+* **Status**: PLANEJADO (fatiada)  
 * **Data**: 2026-10-07  
-* **Última revisão**: 2026-10-08 (Google Auth como extensão do modal contextual da SPEC-04)  
+* **Última revisão**: 2026-10-28 (cobrança e estados financeiros movidos para a SPEC-09; esta spec cobre Google Auth e WhatsApp)  
 * **Documento PRD de Referência**: `docs/prd/checklist-home-clinicle.md` / `checklist-home-patiente.md`  
-* **Especificação Mestre**: Módulo de Cobrança, Trava da Plataforma, Estado de Pendência e Canais Digitais (Item 4 do Mapeamento)
+* **Especificação Mestre**: Canais digitais (Google Auth e WhatsApp). Cobrança, token de presença, boleto semanal e máquina operacional: `docs/specs/SPEC-09_Modelo_de_Cobranca_e_Maquinas_de_Estado.md`.
+
+**Supersessão (2026-10-28):** o modelo de taxa PIX do paciente, os estados de agendamento `PAGO`, `PENDENCIA_PAGAMENTO` e `FINALIZADO`, a regra “Não cobramos fora do app” como PIX ao paciente e o DoD financeiro desta spec **não devem ser implementados**. A pendência financeira, quando existir, é badge derivado da cobrança da SPEC-09 (`DEVIDA` / `COBRANCA_GERADA`), nunca um status de agendamento. Os critérios de aceite de Google Auth e WhatsApp abaixo permanecem desta spec e dependem de EVOL-005.
 
 **Dependência da landing:** a SPEC-04 cria/adapta um único `AuthModal` contextual para Paciente ou Clínica e define sua abertura a partir do nicho. Esta spec acrescenta Google Auth ao contexto Paciente desse modal; não criar um segundo modal nem alterar a seleção de nicho. No fluxo de agendamento web da SPEC-06, a autenticação deve retornar ao pedido pendente e permitir sua conclusão mock.
 
@@ -23,7 +25,7 @@
 
 #### 1. Contexto, Rota e Arquivos Alvo
 
-* **Objetivo da Tarefa**: Implementar o modelo de cobrança flexível dentro da plataforma, incorporar o estado visual de **`PENDENCIA_PAGAMENTO`** no painel da clínica, adicionar a autenticação via **Google Auth** no modal do paciente e disponibilizar a simulação de envios e lembretes via **WhatsApp**.
+* **Objetivo da Tarefa**: Adicionar a autenticação via **Google Auth** no modal do paciente e disponibilizar a simulação de envios e lembretes via **WhatsApp**. Cobrança, token e boleto não pertencem mais a esta spec (SPEC-09).
 * **Rota(s) da Aplicação**: 
   * `/` (Modal de autenticação com botão Google Auth).
   * `/dashboard/agenda` (Visualização dos cards de agendamento com o badge `PENDENCIA_PAGAMENTO`).
@@ -102,17 +104,17 @@ PENDENCIA_PAGAMENTO -> FINALIZADO (planejado)
 
 #### 4. Critérios de Aceite (Definition of Done)
 
-* [ ] O componente `StatusBadge.jsx` renderiza o estado `PENDENCIA_PAGAMENTO` com o estilo laranja/ânbar e ícone de alerta vetorial.
-* [ ] Os cards na tela `/dashboard/agenda` exibem o indicador de pendência de pagamento quando o valor/taxa não tiver sido liquidado.
+* [ ] *(Supersedido pela SPEC-09)* Badge `PENDENCIA_PAGAMENTO` como status de agendamento.
+* [ ] *(Supersedido pela SPEC-09)* Pendência financeira nos cards da agenda como estado do agendamento.
 * [ ] O modal `AuthModal.jsx` no modo Paciente inclui o botão funcional "Entrar com o Google".
-* [ ] O componente `AppointmentCard.jsx` disponibiliza a ação de envio de mensagens via WhatsApp com os modelos de Confirmação, Lembrete e Boleto/PIX.
-* [ ] A rota `/dashboard/financeiro` contabiliza separadamente os valores realizados e os valores sob o status `PENDENCIA_PAGAMENTO`.
-* [x] A máquina de estados em `appointmentService.js` valida e restringe as transições permitidas para garantir a integridade dos dados.
+* [ ] O componente `AppointmentCard.jsx` disponibiliza a ação de envio de mensagens via WhatsApp com os modelos de Confirmação e Lembrete (sem PIX de taxa do paciente; boleto da clínica é SPEC-09).
+* [ ] *(Supersedido pela SPEC-09)* `/dashboard/financeiro` por `PENDENCIA_PAGAMENTO`.
+* [x] A máquina de estados em `appointmentService.js` valida e restringe as transições permitidas para garantir a integridade dos dados. A SPEC-09 substitui o conjunto de estados quando for implementada.
 * [ ] Nenhum emoji é utilizado na interface dos cards, modais ou badges de status, em conformidade com o `AGENTS.md`.
 
 ---
 
-**Status desta spec: PLANEJADO.** A SPEC-07 reutiliza o `AuthModal` contextual da SPEC-04 para acrescentar Google Auth e complementa o fluxo web de agendamento da SPEC-06. Não representa autenticação real nem integração real de backend nesta fase mock-first.
+**Status desta spec: PLANEJADO (fatiada).** Google Auth e WhatsApp seguem aqui e em EVOL-005. A SPEC-07 reutiliza o `AuthModal` contextual da SPEC-04. Não representa autenticação real nem integração real de backend nesta fase mock-first. Cobrança: SPEC-09.
 
 ### Acompanhamento posterior relacionado à agenda
 

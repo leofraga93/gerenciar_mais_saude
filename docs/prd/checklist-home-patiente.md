@@ -1,9 +1,9 @@
 ### Checklist - Credenciamento do Paciente, Agendamento Web e Evolução Mobile
-Base de comparação: docs/checklist-landing-page.md, SPEC-06, SPEC-07 e requisitos de negócio B2B2C.
-Roadmap transversal de evolução: `docs/prd/roadmap-evolucao.md` (itens EVOL-001 a EVOL-013; geocodificação em EVOL-002, Google Auth e WhatsApp em EVOL-005).
+Base de comparação: docs/checklist-landing-page.md, SPEC-06, SPEC-07, SPEC-09 e requisitos de negócio B2B2C.
+Roadmap transversal de evolução: `docs/prd/roadmap-evolucao.md` (itens EVOL-001 a EVOL-014; geocodificação em EVOL-002, Google Auth e WhatsApp em EVOL-005, boleto real em EVOL-014).
 **Escopo desta fase:** Front-end visual + Mock Data + Reaproveitamento de componentes e utilitários.
-**Fora de escopo agora:** Banco de dados PostgreSQL, fetch/axios real, integração com API Spring Boot, persistência de token backend.
-**Última revisão:** 2026-10-13 — SPEC-04 e SPEC-06 sincronizadas como concluídas neste checklist; débitos posteriores de copy e dados estão rastreados em EVOL-007..013; integrações externas Google Auth e WhatsApp seguem em EVOL-005.
+**Fora de escopo agora:** Banco de dados PostgreSQL, fetch/axios real, integração com API Spring Boot, gateway real de boleto.
+**Última revisão:** 2026-10-28 — contrato de token/presença e trava de novo pedido na SPEC-09; Google Auth e WhatsApp permanecem SPEC-07 / EVOL-005.
 
 --------------------------------------------------------------------------------
 
@@ -55,9 +55,14 @@ Landing neutra (/) ──► Visão Paciente ──► Vitrine / localização (
 ##### 2.3 Resumo Consolidado (`OrderSummaryModal.jsx`)
 *  [x] **Tabela Resumo do Lote:** `OrderSummaryModal.jsx` exibe exames agendados, clínicas responsáveis, datas, horários e valores; soma somente itens particulares.
 *  [x] **Guia Unificado de Preparo:** O resumo consolida as orientações de preparo sem duplicar textos iguais.
-*  [x] **Envio em Lote:** `appointmentService.js` cria um `orderId`, persiste todos os agendamentos mock em lote com status inicial `SOLICITADO` e valida seleção/disponibilidade.
+*  [x] **Envio em Lote:** `appointmentService.js` cria um `orderId`, persiste todos os agendamentos mock em lote com status inicial `SOLICITADO` e valida seleção/disponibilidade. Um pedido pode incluir mais de uma clínica; token e taxa por clínica são da SPEC-09.
 
 --------------------------------------------------------------------------------
+
+##### 2.4 Token de presença e trava de novo pedido (SPEC-09)
+*  [ ] **Token único por `orderId`:** gerado na primeira confirmação da clínica; visível em `/paciente/inicio`; válido nas clínicas do pedido.
+*  [ ] **Declaração obrigatória:** se houver item `CONFIRMADO_CLINICA` sem check-in, o paciente declara comparecimento por clínica antes de enviar novo carrinho.
+*  [ ] **Copy:** remover a afirmação de taxa de R$ 5,00 via PIX paga pelo paciente.
 
 #### 3) Canais Digitais e Autenticação (SPEC-07)
 *  [ ] **Google Auth (`AuthModal.jsx`, EVOL-005):** Integração OAuth/OIDC futura, dependente de configuração de provedor e validação segura de tokens.
@@ -75,5 +80,6 @@ Landing neutra (/) ──► Visão Paciente ──► Vitrine / localização (
 | **Busca para Terceiros (`LocationSearchInput`)** | **Concluído (mock; API futura EVOL-002)** | `src/components/patient/LocationSearchInput.jsx` / `src/data/locationCatalog.js` |
 | **Revisão e Resumo de Pedidos** | **Concluído (SPEC-06 web mock)** | `src/components/patient/ExamRequestReviewModal.jsx` / `src/components/patient/OrderSummaryModal.jsx` / `src/components/patient/PatientRecentOrdersCard.jsx` |
 | **Consulta de Pedidos (`usePatientAppointments`)** | **Concluído (SPEC-06 web mock)** | `src/hooks/usePatientAppointments.js` / `src/pages/PatientWelcomePage.jsx` |
+| **Token de presença e trava de novo pedido** | **Pendente (SPEC-09)** | `/paciente/inicio` |
 | **Google Auth (`AuthModal`)** | **Futuro (EVOL-005; integração externa)** | `src/components/landing/AuthModal.jsx` |
 | **Notificações via WhatsApp** | **Futuro (EVOL-005; integração externa)** | Roadmap de evolução |

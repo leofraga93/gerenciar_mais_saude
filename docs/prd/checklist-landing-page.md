@@ -1,6 +1,6 @@
 ### Checklist - Landing Page Hub (Clínicas + Pacientes)
 Base de comparação: `docs/AGENTS.md`, SPEC-04 e roadmap do projeto.
-Roadmap transversal de evolução: `docs/prd/roadmap-evolucao.md` (itens EVOL-001 a EVOL-013; Google Auth e integrações via WhatsApp aguardam EVOL-005 junto à API/backend).
+Roadmap transversal de evolução: `docs/prd/roadmap-evolucao.md` (itens EVOL-001 a EVOL-014; Google Auth e WhatsApp aguardam EVOL-005; boleto real aguarda EVOL-014). A copy de taxa PIX do paciente é substituída na implementação da SPEC-09.
 
 **Decisão de experiência:** a rota `/` inicia neutra e convidativa, com promessa institucional, escolha explícita entre Paciente e Clínica e elementos globais compartilhados. A escolha troca a área principal por uma experiência B2C ou B2B dedicada. Busca para terceiros e agendamento no site pertencem à SPEC-06; Google Auth pertence à SPEC-07; credenciamento da clínica pertence à SPEC-05.
 
@@ -88,5 +88,5 @@ Na SPEC-04, o carrossel não aparece no estado neutro. A visão Paciente exibe a
 #### 5) Mapa Rápido de Status (Visão Executiva)
 *   **Atende:** Base visual e conversão dual, CTAs duplos, modal inteligente, faixa passo a passo em 4 etapas, catálogo público com busca multi-critério (Categoria + Convênio + Faixa de Valor), carrossel de depoimentos e rodapé Dark Theme.
 *   **Concluído:** Hub neutro e visões segmentadas (`SPEC-04`).
-*   **Planejado:** credenciamento (`SPEC-05`) e integrações externas Google Auth e WhatsApp em EVOL-005, depois do planejamento de API/backend em EVOL-002. O fluxo web da SPEC-06 está concluído; pendências de copy, dados e manutenção estão rastreadas em EVOL-007..013.
+*   **Planejado:** credenciamento (`SPEC-05`); token, repasse e boleto mock (`SPEC-09`); integrações externas Google Auth e WhatsApp em EVOL-005, depois do planejamento de API/backend em EVOL-002. O fluxo web da SPEC-06 está concluído; pendências de copy, dados e manutenção estão rastreadas em EVOL-007..014.
 *   **Fora desta sequência mock-first:** API real de autenticação.
