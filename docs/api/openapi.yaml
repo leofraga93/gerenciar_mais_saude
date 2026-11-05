@@ -1,0 +1,1403 @@
+openapi: 3.0.3
+info:
+  title: Gerenciar Mais Saúde API
+  version: 0.2.0
+  description: |
+    Contrato REST entre o front (React) e o backend (Spring Boot).
+    Fonte de regras: SPEC-09 (estados, token, taxa; substitui a SPEC-08), SPEC-06 (pedido em lote), SPEC-05 (credenciamento e moderação).
+
+    **Convenções**
+    - Base `/api/v1`. JSON em camelCase. IDs de entidades em UUID, exceto `orderId` (ex.: `ORD-2026-000101`).
+    - Datas `YYYY-MM-DD`, horários `HH:mm` (fuso America/Bahia), timestamps ISO-8601 UTC.
+    - **Dinheiro em centavos inteiros** (`*Cents`). O front converte para reais na camada de adaptação.
+    - Erros no padrão RFC 7807 (`application/problem+json`) com campo `code`.
+    - `clinicId` e `patientId` vêm **sempre do token**, nunca do corpo.
+    - Paginação: `page` (base 0) e `size`.
+
+    **Decisões embutidas neste contrato (confirmar antes de implementar)**
+    - D1: valores em centavos (a SPEC-09 usa decimais; o adaptador converte).
+    - D2: um token de check-in por `orderId` (SPEC-09 §4.3), 6 caracteres do alfabeto `23456789ABCDEFGHJKLMNPQRSTUVWXYZ`.
+    - D3: modo `FULL_AMOUNT`, repasse e estorno estão modelados, mas são Fase B (EVOL-014).
+    - D4: refresh de sessão por cookie HttpOnly (exige API e front no mesmo domínio-pai).
+    - D5: nomes de campos de agendamento seguem SPEC-06/SPEC-09 (`selectedDate`, `selectedTimeSlot`, `selectedPeriod`).
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Desenvolvimento local
+  - url: https://api.seudominio.com.br/api/v1
+    description: Produção (a definir)
+tags:
+  - name: Auth
+  - name: Patients
+  - name: Clinics
+  - name: Services
+  - name: Catalog
+  - name: Orders
+  - name: Appointments
+  - name: Billing
+  - name: Admin
+security:
+  - bearerAuth: []
+
+paths:
+  /auth/patients/register:
+    post:
+      tags: [Auth]
+      summary: Cadastro de paciente
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PatientRegisterRequest' }
+      responses:
+        '201':
+          description: Paciente criado e autenticado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /auth/clinics/register:
+    post:
+      tags: [Auth]
+      summary: Credenciamento de clínica (status inicial PENDENTE_APROVACAO_ADMIN)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ClinicRegisterRequest' }
+      responses:
+        '201':
+          description: Clínica criada e autenticada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login de paciente ou clínica
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: Autenticado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/admin/login:
+    post:
+      tags: [Auth]
+      summary: Login da administração
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string }
+                password: { type: string, format: password }
+      responses:
+        '200':
+          description: Autenticado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Renova o access token usando o cookie de refresh
+      security: []
+      responses:
+        '200':
+          description: Novo token
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Encerra a sessão
+      responses:
+        '204': { description: Sessão encerrada }
+
+  /patients/me:
+    get:
+      tags: [Patients]
+      summary: Perfil do paciente logado
+      description: 'Perfil: ROLE_USUARIO. O CPF volta mascarado.'
+      responses:
+        '200':
+          description: Perfil
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Patient' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    put:
+      tags: [Patients]
+      summary: Atualiza telefone e convênios do paciente
+      description: 'Perfil: ROLE_USUARIO.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                phone: { type: string }
+                insuranceIds:
+                  type: array
+                  items: { type: string }
+      responses:
+        '200':
+          description: Perfil atualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Patient' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /patients/me/orders:
+    get:
+      tags: [Patients]
+      summary: Pedidos do paciente, agrupados por orderId
+      description: 'Perfil: ROLE_USUARIO. Inclui o `checkInToken` do pedido quando existir.'
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Size' }
+      responses:
+        '200':
+          description: Página de pedidos
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OrderPage' }
+
+  /patients/me/pending-attendance:
+    get:
+      tags: [Patients]
+      summary: Agendamentos passados que aguardam a declaração de comparecimento
+      description: 'Perfil: ROLE_USUARIO. Itens com data passada em CONFIRMADO_CLINICA sem declaração (SPEC-09 §4.4). Usado para exibir o modal e bloquear novos pedidos.'
+      responses:
+        '200':
+          description: Lista pendente
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Appointment' }
+
+  /appointments/{appointmentId}/attendance:
+    post:
+      tags: [Patients]
+      summary: Paciente declara se foi atendido
+      description: |
+        Perfil: ROLE_USUARIO. Aceita agendamentos com data passada em CONFIRMADO_CLINICA, REALIZADO ou NAO_COMPARECEU
+        (responder depois da marcação da clínica é o que permite detectar divergência).
+        Se a resposta divergir do estado marcado pela clínica,
+        o agendamento recebe `attendanceDispute=true` e o lançamento da taxa vai para `EM_ANALISE`.
+      parameters:
+        - { $ref: '#/components/parameters/AppointmentId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [attendance]
+              properties:
+                attendance: { $ref: '#/components/schemas/PatientAttendance' }
+      responses:
+        '200':
+          description: Declaração registrada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Appointment' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /clinics/me:
+    get:
+      tags: [Clinics]
+      summary: Clínica logada, com status de moderação
+      description: 'Perfil: ROLE_CLINICA.'
+      responses:
+        '200':
+          description: Clínica
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Clinic' }
+
+  /clinics/me/profile:
+    get:
+      tags: [Clinics]
+      summary: Perfil completo (endereço, horários, fotos)
+      description: 'Perfil: ROLE_CLINICA.'
+      responses:
+        '200':
+          description: Perfil
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClinicProfile' }
+    put:
+      tags: [Clinics]
+      summary: Atualiza o perfil da clínica
+      description: 'Perfil: ROLE_CLINICA. Fotos têm endpoints próprios.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ClinicProfileUpdate' }
+      responses:
+        '200':
+          description: Perfil atualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClinicProfile' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /clinics/me/photos:
+    post:
+      tags: [Clinics]
+      summary: Envia uma foto da clínica
+      description: 'Perfil: ROLE_CLINICA. Armazenamento em serviço de arquivos (não base64 no banco).'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+                title: { type: string }
+                category: { $ref: '#/components/schemas/PhotoCategory' }
+      responses:
+        '201':
+          description: Foto criada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClinicPhoto' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /clinics/me/photos/{photoId}/cover:
+    put:
+      tags: [Clinics]
+      summary: Define a foto de capa
+      description: 'Perfil: ROLE_CLINICA.'
+      parameters:
+        - { $ref: '#/components/parameters/PhotoId' }
+      responses:
+        '204': { description: Capa definida }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /clinics/me/photos/{photoId}:
+    delete:
+      tags: [Clinics]
+      summary: Remove uma foto
+      description: 'Perfil: ROLE_CLINICA.'
+      parameters:
+        - { $ref: '#/components/parameters/PhotoId' }
+      responses:
+        '204': { description: Foto removida }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /clinics/me/services:
+    get:
+      tags: [Services]
+      summary: Serviços da clínica logada
+      description: 'Perfil: ROLE_CLINICA.'
+      responses:
+        '200':
+          description: Lista de serviços
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ClinicService' }
+    post:
+      tags: [Services]
+      summary: Cadastra um serviço
+      description: 'Perfil: ROLE_CLINICA. `insuranceIds` usa os IDs oficiais (ex.: ins-unimed).'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ClinicServiceInput' }
+      responses:
+        '201':
+          description: Serviço criado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClinicService' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /clinics/me/services/{serviceId}:
+    put:
+      tags: [Services]
+      summary: Edita um serviço
+      description: 'Perfil: ROLE_CLINICA.'
+      parameters:
+        - { $ref: '#/components/parameters/ServiceId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ClinicServiceInput' }
+      responses:
+        '200':
+          description: Serviço atualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClinicService' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+    delete:
+      tags: [Services]
+      summary: Remove um serviço
+      description: 'Perfil: ROLE_CLINICA. Serviços com agendamentos em aberto devem ser apenas inativados (409).'
+      parameters:
+        - { $ref: '#/components/parameters/ServiceId' }
+      responses:
+        '204': { description: Removido }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /clinics/me/services/{serviceId}/status:
+    patch:
+      tags: [Services]
+      summary: Ativa ou inativa um serviço
+      description: 'Perfil: ROLE_CLINICA.'
+      parameters:
+        - { $ref: '#/components/parameters/ServiceId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [active]
+              properties:
+                active: { type: boolean }
+      responses:
+        '200':
+          description: Serviço atualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClinicService' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /insurances:
+    get:
+      tags: [Catalog]
+      summary: Lista mestre de convênios
+      security: []
+      responses:
+        '200':
+          description: Convênios
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Insurance' }
+
+  /catalog/procedures:
+    get:
+      tags: [Catalog]
+      summary: Catálogo padrão de procedimentos (sugestões)
+      security: []
+      responses:
+        '200':
+          description: Procedimentos
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/StandardProcedure' }
+
+  /catalog/offers:
+    get:
+      tags: [Catalog]
+      summary: Busca pública de ofertas
+      description: |
+        Retorna somente serviços **ativos** de clínicas com status `APROVADO`.
+        Ordena por distância (Haversine) e, em empate de até 1 metro, por maior avaliação.
+      security: []
+      parameters:
+        - { name: q, in: query, schema: { type: string }, description: 'Nome, código TUSS ou preparo' }
+        - { name: category, in: query, schema: { $ref: '#/components/schemas/ServiceCategory' } }
+        - { name: insuranceId, in: query, schema: { type: string } }
+        - { name: minPriceCents, in: query, schema: { type: integer, minimum: 0 } }
+        - { name: maxPriceCents, in: query, schema: { type: integer, minimum: 0 } }
+        - { name: period, in: query, schema: { $ref: '#/components/schemas/Period' } }
+        - { name: lat, in: query, schema: { type: number, format: double } }
+        - { name: lng, in: query, schema: { type: number, format: double } }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Size' }
+      responses:
+        '200':
+          description: Página de ofertas
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OfferPage' }
+
+  /clinics/{clinicId}/availability:
+    get:
+      tags: [Catalog]
+      summary: Datas e horários disponíveis da clínica
+      security: []
+      parameters:
+        - { name: clinicId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: days, in: query, schema: { type: integer, minimum: 1, maximum: 60, default: 30 } }
+        - { name: period, in: query, schema: { $ref: '#/components/schemas/Period' } }
+      responses:
+        '200':
+          description: Dias com horários
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/AvailabilityDay' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /locations/search:
+    get:
+      tags: [Catalog]
+      summary: Busca de localização para a vitrine (EVOL-002)
+      security: []
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Locais encontrados
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Location' }
+
+  /orders/validate:
+    post:
+      tags: [Orders]
+      summary: Pré-valida os itens da lista de exames
+      description: 'Perfil: ROLE_USUARIO. Sempre responde 200; o resultado por item indica os problemas.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateOrderRequest' }
+      responses:
+        '200':
+          description: Resultado da validação
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OrderValidationResult' }
+
+  /orders:
+    post:
+      tags: [Orders]
+      summary: Cria um pedido com vários agendamentos
+      description: |
+        Perfil: ROLE_USUARIO. Todos os itens nascem `SOLICITADO`. Preço, nome do exame e clínica
+        vêm da oferta no servidor; o cliente nunca os envia.
+        Bloqueia com 409 `ATTENDANCE_PENDING` se houver agendamento passado sem declaração de comparecimento.
+      parameters:
+        - { name: Idempotency-Key, in: header, required: true, schema: { type: string, maxLength: 80 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateOrderRequest' }
+      responses:
+        '201':
+          description: Pedido criado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /clinics/me/appointments:
+    get:
+      tags: [Appointments]
+      summary: Agenda da clínica logada
+      description: 'Perfil: ROLE_CLINICA. Nunca expõe o token de check-in.'
+      parameters:
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/AppointmentStatus' } }
+        - { name: date, in: query, schema: { type: string, format: date } }
+        - { name: q, in: query, schema: { type: string }, description: 'Busca por nome do paciente (check-in manual)' }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Size' }
+      responses:
+        '200':
+          description: Página de agendamentos
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AppointmentPage' }
+
+  /appointments/{appointmentId}/transitions:
+    post:
+      tags: [Appointments]
+      summary: Aplica uma transição na máquina de agendamento
+      description: |
+        Perfil: ROLE_CLINICA (CONFIRM, MARK_DONE, MARK_NO_SHOW, CANCEL), ROLE_USUARIO (CANCEL) ou ROLE_ADMIN (CANCEL).
+        `MARK_DONE` exige check-in prévio. Transição inválida retorna 409 `INVALID_TRANSITION`.
+        Ao atingir um estado cobrável da clínica, cria o lançamento da taxa.
+        A primeira confirmação de um pedido gera o token (um por `orderId`).
+      parameters:
+        - { $ref: '#/components/parameters/AppointmentId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TransitionRequest' }
+      responses:
+        '200':
+          description: Agendamento atualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Appointment' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /clinics/me/check-in:
+    post:
+      tags: [Appointments]
+      summary: Check-in por token na recepção
+      description: |
+        Perfil: ROLE_CLINICA. Lista e marca apenas os itens **desta clínica** no pedido.
+        Itens em `NAO_COMPARECEU` podem voltar a `REALIZADO` se o token for apresentado (prova de guichê).
+        Bloqueia após 5 falhas consecutivas (423 `TOKEN_LOCKED`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string, pattern: '^[2-9A-HJ-NP-Z]{6}$' }
+      responses:
+        '200':
+          description: Presença registrada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CheckInResult' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '423':
+          description: Muitas tentativas incorretas
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /clinics/me/check-in/manual:
+    post:
+      tags: [Appointments]
+      summary: Check-in manual (exceção auditada)
+      description: 'Perfil: ROLE_CLINICA. Grava `checkInMethod=MANUAL` e o motivo.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [appointmentId, reason]
+              properties:
+                appointmentId: { type: string, format: uuid }
+                reason: { type: string, minLength: 5, maxLength: 300 }
+      responses:
+        '200':
+          description: Presença registrada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Appointment' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /clinics/me/billing-config:
+    get:
+      tags: [Billing]
+      summary: Configuração de cobrança da própria clínica (somente leitura)
+      description: 'Perfil: ROLE_CLINICA.'
+      responses:
+        '200':
+          description: Configuração
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClinicBillingConfig' }
+
+  /clinics/me/fee-ledger:
+    get:
+      tags: [Billing]
+      summary: Lançamentos da taxa da clínica
+      description: 'Perfil: ROLE_CLINICA.'
+      parameters:
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/FeeStatus' } }
+        - { name: weekKey, in: query, schema: { $ref: '#/components/schemas/WeekKey' } }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Size' }
+      responses:
+        '200':
+          description: Página de lançamentos
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FeeLedgerPage' }
+
+  /clinics/me/boletos:
+    get:
+      tags: [Billing]
+      summary: Boletos semanais da clínica
+      description: 'Perfil: ROLE_CLINICA.'
+      responses:
+        '200':
+          description: Boletos
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Boleto' }
+
+  /admin/clinics:
+    get:
+      tags: [Admin]
+      summary: Clínicas cadastradas
+      description: 'Perfil: ROLE_ADMIN.'
+      parameters:
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/ApprovalStatus' } }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Size' }
+      responses:
+        '200':
+          description: Página de clínicas
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClinicPage' }
+
+  /admin/clinics/{clinicId}/status:
+    patch:
+      tags: [Admin]
+      summary: Aprova, suspende ou rejeita uma clínica
+      description: 'Perfil: ROLE_ADMIN. Somente `APROVADO` publica serviços na vitrine.'
+      parameters:
+        - { $ref: '#/components/parameters/ClinicId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { $ref: '#/components/schemas/ApprovalStatus' }
+                reason: { type: string, maxLength: 300 }
+      responses:
+        '200':
+          description: Clínica atualizada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Clinic' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /admin/clinics/{clinicId}/billing-config:
+    get:
+      tags: [Admin]
+      summary: Configuração de cobrança da clínica
+      description: 'Perfil: ROLE_ADMIN.'
+      parameters:
+        - { $ref: '#/components/parameters/ClinicId' }
+      responses:
+        '200':
+          description: Configuração
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClinicBillingConfig' }
+    put:
+      tags: [Admin]
+      summary: Altera a configuração de cobrança da clínica
+      description: |
+        Perfil: ROLE_ADMIN. `billableStatuses` só aceita REALIZADO e NAO_COMPARECEU
+        (422 `INVALID_BILLABLE_STATUS` caso contrário).
+      parameters:
+        - { $ref: '#/components/parameters/ClinicId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ClinicBillingConfigInput' }
+      responses:
+        '200':
+          description: Configuração atualizada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ClinicBillingConfig' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /admin/fee-ledger:
+    get:
+      tags: [Admin]
+      summary: Lançamentos da taxa de todas as clínicas
+      description: 'Perfil: ROLE_ADMIN.'
+      parameters:
+        - { name: clinicId, in: query, schema: { type: string, format: uuid } }
+        - { name: weekKey, in: query, schema: { $ref: '#/components/schemas/WeekKey' } }
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/FeeStatus' } }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Size' }
+      responses:
+        '200':
+          description: Página de lançamentos
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FeeLedgerPage' }
+
+  /admin/fee-ledger/{ledgerId}/transitions:
+    post:
+      tags: [Admin]
+      summary: Aplica uma transição na máquina do lançamento da taxa
+      description: |
+        Perfil: ROLE_ADMIN (SPEC-09 §4.2, modo FEE_ONLY).
+        - `RESOLVE_CHARGE`: EM_ANALISE para DEVIDA (divergência decidida a favor da cobrança)
+        - `WAIVE`: EM_ANALISE ou DEVIDA para ISENTA
+        - `GENERATE_CHARGE`: DEVIDA para COBRANCA_GERADA, forma INDIVIDUAL (um boleto para este lançamento)
+        - `MARK_PAID`: COBRANCA_GERADA ou EM_ATRASO para PAGA
+        - `MARK_OVERDUE`: COBRANCA_GERADA para EM_ATRASO (prazo vencido; na Fase B vira job automático)
+        Transição inválida retorna 409 `INVALID_TRANSITION`.
+      parameters:
+        - { name: ledgerId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LedgerTransitionRequest' }
+      responses:
+        '200':
+          description: Lançamento atualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FeeLedgerEntry' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /admin/appointments:
+    get:
+      tags: [Admin]
+      summary: Agendamentos de todas as clínicas (visão da administração)
+      description: 'Perfil: ROLE_ADMIN. Usado para analisar divergências de comparecimento. O token nunca é exposto.'
+      parameters:
+        - { name: clinicId, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/AppointmentStatus' } }
+        - { name: attendanceDispute, in: query, schema: { type: boolean } }
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Size' }
+      responses:
+        '200':
+          description: Página de agendamentos
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AppointmentPage' }
+
+  /admin/charges/weekly-close:
+    post:
+      tags: [Admin]
+      summary: Fecha a semana e emite um boleto mock por clínica
+      description: |
+        Perfil: ROLE_ADMIN. Para clínicas com `billingGrouping=ACCUMULATED`.
+        Agrupa lançamentos `DEVIDA` do `weekKey` por clínica
+        e move para `COBRANCA_GERADA`. Fase A: boleto simulado (sem gateway).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [weekKey]
+              properties:
+                weekKey: { $ref: '#/components/schemas/WeekKey' }
+      responses:
+        '201':
+          description: Boletos emitidos
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Boleto' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /admin/boletos:
+    get:
+      tags: [Admin]
+      summary: Boletos emitidos
+      description: 'Perfil: ROLE_ADMIN.'
+      parameters:
+        - { name: weekKey, in: query, schema: { $ref: '#/components/schemas/WeekKey' } }
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/BoletoStatus' } }
+      responses:
+        '200':
+          description: Boletos
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Boleto' }
+
+  /admin/boletos/{boletoId}/settle:
+    post:
+      tags: [Admin]
+      summary: Registra a liquidação do boleto (Fase A, manual)
+      description: 'Perfil: ROLE_ADMIN. Move boleto para `LIQUIDADO` e lançamentos para `PAGA`.'
+      parameters:
+        - { $ref: '#/components/parameters/BoletoId' }
+      responses:
+        '200':
+          description: Boleto liquidado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Boleto' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /admin/boletos/{boletoId}/refund:
+    post:
+      tags: [Admin]
+      summary: Estorna boleto ou lançamento (altera só a cobrança)
+      description: |
+        Perfil: ROLE_ADMIN. Permitido apenas em boleto `BOLETO_EMITIDO` ou `LIQUIDADO`.
+        O agendamento permanece `REALIZADO` ou `NAO_COMPARECEU`.
+      parameters:
+        - { $ref: '#/components/parameters/BoletoId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, minLength: 5, maxLength: 300 }
+      responses:
+        '200':
+          description: Boleto estornado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Boleto' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 'Roles no token: ROLE_USUARIO, ROLE_CLINICA, ROLE_ADMIN.'
+
+  parameters:
+    Page: { name: page, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+    Size: { name: size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+    AppointmentId: { name: appointmentId, in: path, required: true, schema: { type: string, format: uuid } }
+    ClinicId: { name: clinicId, in: path, required: true, schema: { type: string, format: uuid } }
+    ServiceId: { name: serviceId, in: path, required: true, schema: { type: string, format: uuid } }
+    PhotoId: { name: photoId, in: path, required: true, schema: { type: string, format: uuid } }
+    BoletoId: { name: boletoId, in: path, required: true, schema: { type: string, format: uuid } }
+
+  responses:
+    Unauthorized:
+      description: Não autenticado ou token expirado
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Forbidden:
+      description: Perfil sem permissão para a ação
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    NotFound:
+      description: Recurso não encontrado (ou de outra clínica/paciente)
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Conflict:
+      description: Conflito de regra de negócio
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Unprocessable:
+      description: Dados inválidos
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+
+  schemas:
+    Problem:
+      type: object
+      required: [status, code, title]
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        code:
+          type: string
+          description: Código estável para o front tratar a mensagem
+          enum:
+            - VALIDATION_ERROR
+            - INVALID_TRANSITION
+            - SLOT_UNAVAILABLE
+            - OFFER_UNAVAILABLE
+            - ATTENDANCE_PENDING
+            - TOKEN_NOT_FOUND
+            - TOKEN_NOT_IN_CLINIC
+            - TOKEN_ALREADY_USED
+            - TOKEN_LOCKED
+            - CHECK_IN_REQUIRED
+            - INVALID_BILLABLE_STATUS
+            - DUPLICATE_REQUEST
+            - ALREADY_EXISTS
+        itemIndex:
+          type: integer
+          description: Índice do item do pedido que causou o erro
+        fieldErrors:
+          type: array
+          items:
+            type: object
+            required: [field, message]
+            properties:
+              field: { type: string }
+              message: { type: string }
+
+    PageInfo:
+      type: object
+      required: [page, size, totalElements]
+      properties:
+        page: { type: integer }
+        size: { type: integer }
+        totalElements: { type: integer, format: int64 }
+        totalPages: { type: integer }
+
+    # ---------- Enums ----------
+    Role: { type: string, enum: [ROLE_USUARIO, ROLE_CLINICA, ROLE_ADMIN] }
+    ApprovalStatus: { type: string, enum: [PENDENTE_APROVACAO_ADMIN, APROVADO, SUSPENSO, REJEITADO] }
+    ServiceCategory: { type: string, enum: [laboratorio, imagem, cardiologia, consultas, outros] }
+    Period: { type: string, enum: [MANHA, TARDE, NOITE] }
+    PaymentType: { type: string, enum: [PARTICULAR, CONVENIO] }
+    PatientAttendance: { type: string, enum: [ATTENDED, NOT_ATTENDED] }
+    PhotoCategory: { type: string, enum: [FACHADA, RECEPCAO, CONSULTORIO, EXAMES, ESTRUTURA] }
+    AppointmentStatus:
+      type: string
+      enum: [SOLICITADO, CONFIRMADO_CLINICA, REALIZADO, NAO_COMPARECEU, CANCELADO]
+    TransitionAction:
+      type: string
+      enum: [CONFIRM, MARK_DONE, MARK_NO_SHOW, CANCEL]
+    BillableStatus: { type: string, enum: [REALIZADO, NAO_COMPARECEU] }
+    SettlementMode:
+      type: string
+      enum: [FEE_ONLY, FULL_AMOUNT]
+      description: FULL_AMOUNT é Fase B (EVOL-009)
+    BillingGrouping: { type: string, enum: [INDIVIDUAL, ACCUMULATED] }
+    FeeStatus: { type: string, enum: [EM_ANALISE, DEVIDA, COBRANCA_GERADA, PAGA, EM_ATRASO, ISENTA] }
+    BoletoStatus: { type: string, enum: [BOLETO_EMITIDO, LIQUIDADO, ESTORNADO] }
+    WeekKey:
+      type: string
+      pattern: '^\d{4}-W\d{2}$'
+      example: 2026-W45
+      description: Semana ISO-8601 (segunda a domingo) em America/Bahia
+
+    # ---------- Auth ----------
+    LoginRequest:
+      type: object
+      required: [email, password, audience]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+        password: { type: string, format: password }
+        audience: { type: string, enum: [PATIENT, CLINIC] }
+    AuthResponse:
+      type: object
+      required: [accessToken, expiresIn, user]
+      properties:
+        accessToken: { type: string }
+        expiresIn: { type: integer, example: 900 }
+        user:
+          type: object
+          required: [id, role, name]
+          properties:
+            id: { type: string, format: uuid }
+            role: { $ref: '#/components/schemas/Role' }
+            name: { type: string }
+    PatientRegisterRequest:
+      type: object
+      required: [fullName, cpf, birthDate, email, password, phone, acceptTerms]
+      properties:
+        fullName: { type: string }
+        cpf: { type: string, example: '123.456.789-09' }
+        birthDate: { type: string, format: date, description: 'Mínimo 18 anos' }
+        email: { type: string, format: email, maxLength: 254 }
+        password: { type: string, format: password, minLength: 8, description: 'Letras e números' }
+        phone: { type: string }
+        insuranceIds:
+          type: array
+          items: { type: string }
+          default: [ins-particular]
+        acceptTerms: { type: boolean }
+    ClinicRegisterRequest:
+      type: object
+      required: [legalName, tradeName, cnpj, email, password, managerName, phone, acceptTerms]
+      properties:
+        legalName: { type: string, minLength: 3, maxLength: 200 }
+        tradeName: { type: string, minLength: 3, maxLength: 200 }
+        cnpj: { type: string, example: '12.345.678/0001-95' }
+        email: { type: string, format: email, maxLength: 254 }
+        password: { type: string, format: password, minLength: 8 }
+        managerName: { type: string }
+        phone: { type: string }
+        referralCode: { type: string, minLength: 4, maxLength: 30 }
+        acceptTerms: { type: boolean }
+
+    # ---------- Pessoas e clínicas ----------
+    Patient:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        fullName: { type: string }
+        cpfMasked: { type: string, example: '***.456.789-**' }
+        birthDate: { type: string, format: date }
+        email: { type: string, format: email }
+        phone: { type: string }
+        insuranceIds: { type: array, items: { type: string } }
+        createdAt: { type: string, format: date-time }
+    Clinic:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        legalName: { type: string }
+        tradeName: { type: string }
+        cnpj: { type: string }
+        email: { type: string, format: email }
+        phone: { type: string }
+        managerName: { type: string }
+        approvalStatus: { $ref: '#/components/schemas/ApprovalStatus' }
+        statusUpdatedAt: { type: string, format: date-time }
+        registeredAt: { type: string, format: date-time }
+    ClinicPage:
+      allOf:
+        - $ref: '#/components/schemas/PageInfo'
+        - type: object
+          properties:
+            content: { type: array, items: { $ref: '#/components/schemas/Clinic' } }
+    OperatingDay:
+      type: object
+      required: [key, active, open, close]
+      properties:
+        key: { type: string, enum: [seg, ter, qua, qui, sex, sab, dom] }
+        active: { type: boolean }
+        open: { type: string, pattern: '^\d{2}:\d{2}$' }
+        close: { type: string, pattern: '^\d{2}:\d{2}$' }
+    ClinicPhoto:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        url: { type: string, format: uri }
+        title: { type: string }
+        category: { $ref: '#/components/schemas/PhotoCategory' }
+        isCover: { type: boolean }
+        uploadedAt: { type: string, format: date-time }
+    ClinicProfileUpdate:
+      type: object
+      properties:
+        tradeName: { type: string }
+        phone: { type: string }
+        whatsapp: { type: string }
+        email: { type: string, format: email }
+        addressStreet: { type: string }
+        addressNumber: { type: string }
+        addressComplement: { type: string }
+        neighborhood: { type: string }
+        city: { type: string }
+        state: { type: string, minLength: 2, maxLength: 2 }
+        zipCode: { type: string }
+        referencePoint: { type: string }
+        description: { type: string }
+        operatingDays: { type: array, items: { $ref: '#/components/schemas/OperatingDay' } }
+    ClinicProfile:
+      allOf:
+        - $ref: '#/components/schemas/ClinicProfileUpdate'
+        - type: object
+          properties:
+            legalName: { type: string }
+            cnpj: { type: string }
+            latitude: { type: number, format: double, nullable: true }
+            longitude: { type: number, format: double, nullable: true }
+            openingHours: { type: string, description: 'Texto resumido gerado a partir de operatingDays' }
+            amenities: { type: array, items: { type: string } }
+            photos: { type: array, items: { $ref: '#/components/schemas/ClinicPhoto' } }
+
+    # ---------- Catálogo ----------
+    Insurance:
+      type: object
+      properties:
+        id: { type: string, example: ins-unimed }
+        name: { type: string }
+    StandardProcedure:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        category: { $ref: '#/components/schemas/ServiceCategory' }
+        tussCode: { type: string, nullable: true }
+        suggestedPriceCents: { type: integer }
+        suggestedInsuranceIds: { type: array, items: { type: string } }
+        suggestedPrep: { type: string }
+        suggestedDurationMinutes: { type: integer }
+    ClinicServiceInput:
+      type: object
+      required: [name, category, priceCents, descriptionPrep, insuranceIds]
+      properties:
+        name: { type: string, minLength: 3 }
+        category: { $ref: '#/components/schemas/ServiceCategory' }
+        tussCode: { type: string, pattern: '^\d{6,8}$', nullable: true }
+        priceCents: { type: integer, minimum: 1 }
+        descriptionPrep: { type: string, minLength: 10 }
+        durationMinutes: { type: integer, minimum: 5 }
+        insuranceIds: { type: array, minItems: 1, items: { type: string } }
+        insurancePricingNotes: { type: string }
+        commercialNotes: { type: string }
+        imageUrl: { type: string, format: uri, nullable: true }
+        active: { type: boolean, default: true }
+    ClinicService:
+      allOf:
+        - $ref: '#/components/schemas/ClinicServiceInput'
+        - type: object
+          properties:
+            id: { type: string, format: uuid }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+    Offer:
+      type: object
+      properties:
+        offerId: { type: string, format: uuid, description: ID do serviço da clínica }
+        examName: { type: string }
+        category: { $ref: '#/components/schemas/ServiceCategory' }
+        tussCode: { type: string, nullable: true }
+        priceCents: { type: integer }
+        insuranceIds: { type: array, items: { type: string } }
+        descriptionPrep: { type: string }
+        durationMinutes: { type: integer }
+        distanceKm: { type: number, format: double, nullable: true }
+        clinic:
+          type: object
+          properties:
+            id: { type: string, format: uuid }
+            tradeName: { type: string }
+            neighborhood: { type: string }
+            address: { type: string }
+            rating: { type: number, format: double, nullable: true }
+            latitude: { type: number, format: double, nullable: true }
+            longitude: { type: number, format: double, nullable: true }
+    OfferPage:
+      allOf:
+        - $ref: '#/components/schemas/PageInfo'
+        - type: object
+          properties:
+            content: { type: array, items: { $ref: '#/components/schemas/Offer' } }
+    AvailabilityDay:
+      type: object
+      properties:
+        date: { type: string, format: date }
+        timeSlots: { type: array, items: { type: string, pattern: '^\d{2}:\d{2}$' } }
+    Location:
+      type: object
+      properties:
+        id: { type: string }
+        label: { type: string }
+        latitude: { type: number, format: double }
+        longitude: { type: number, format: double }
+
+    # ---------- Pedidos e agendamentos ----------
+    OrderItemRequest:
+      type: object
+      required: [offerId, selectedDate, selectedTimeSlot, paymentType]
+      properties:
+        offerId: { type: string, format: uuid }
+        selectedDate: { type: string, format: date }
+        selectedTimeSlot: { type: string, pattern: '^\d{2}:\d{2}$' }
+        selectedPeriod: { $ref: '#/components/schemas/Period' }
+        paymentType: { $ref: '#/components/schemas/PaymentType' }
+        insuranceId: { type: string, nullable: true, description: 'Obrigatório quando paymentType=CONVENIO' }
+    CreateOrderRequest:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/OrderItemRequest' }
+    OrderValidationResult:
+      type: object
+      properties:
+        valid: { type: boolean }
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              index: { type: integer }
+              valid: { type: boolean }
+              errors:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    code: { type: string }
+                    message: { type: string }
+    Appointment:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        orderId: { type: string, example: ORD-2026-000101 }
+        patientId: { type: string, format: uuid }
+        patientName: { type: string }
+        patientPhone: { type: string, description: 'Visível somente para a clínica do agendamento' }
+        clinicId: { type: string, format: uuid }
+        clinicName: { type: string }
+        examId: { type: string }
+        examName: { type: string }
+        category: { $ref: '#/components/schemas/ServiceCategory' }
+        selectedDate: { type: string, format: date }
+        selectedTimeSlot: { type: string }
+        selectedPeriod: { $ref: '#/components/schemas/Period' }
+        paymentType: { $ref: '#/components/schemas/PaymentType' }
+        insuranceId: { type: string, nullable: true }
+        priceCents: { type: integer, description: '0 quando CONVENIO' }
+        descriptionPrep: { type: string }
+        status: { $ref: '#/components/schemas/AppointmentStatus' }
+        cancelledBy: { type: string, enum: [PACIENTE, CLINICA], nullable: true }
+        cancelReason: { type: string, nullable: true }
+        checkedInAt: { type: string, format: date-time, nullable: true }
+        checkInMethod: { type: string, enum: [TOKEN, MANUAL], nullable: true }
+        patientAttendance: { allOf: [{ $ref: '#/components/schemas/PatientAttendance' }], nullable: true }
+        attendanceDispute: { type: boolean }
+        createdAt: { type: string, format: date-time }
+    AppointmentPage:
+      allOf:
+        - $ref: '#/components/schemas/PageInfo'
+        - type: object
+          properties:
+            content: { type: array, items: { $ref: '#/components/schemas/Appointment' } }
+    Order:
+      type: object
+      properties:
+        orderId: { type: string }
+        createdAt: { type: string, format: date-time }
+        tokenIssuedAt: { type: string, format: date-time, nullable: true }
+        checkInToken:
+          type: string
+          nullable: true
+          description: |
+            Gerado na primeira confirmação de qualquer item do pedido. Retornado apenas ao
+            paciente dono do pedido; nunca em respostas de clínica ou admin.
+        appointments:
+          type: array
+          items: { $ref: '#/components/schemas/Appointment' }
+    OrderPage:
+      allOf:
+        - $ref: '#/components/schemas/PageInfo'
+        - type: object
+          properties:
+            content: { type: array, items: { $ref: '#/components/schemas/Order' } }
+    TransitionRequest:
+      type: object
+      required: [action]
+      properties:
+        action: { $ref: '#/components/schemas/TransitionAction' }
+        reason: { type: string, maxLength: 300, description: 'Obrigatório em CANCEL' }
+        chargedAmountCents: { type: integer, minimum: 0, description: 'Opcional em MARK_DONE' }
+    CheckInResult:
+      type: object
+      properties:
+        orderId: { type: string }
+        patientName: { type: string }
+        appointments:
+          type: array
+          description: Somente os itens desta clínica no pedido
+          items: { $ref: '#/components/schemas/Appointment' }
+
+    # ---------- Cobrança ----------
+    ClinicBillingConfigInput:
+      type: object
+      required: [settlementMode, billableStatuses, billingGrouping]
+      properties:
+        settlementMode: { $ref: '#/components/schemas/SettlementMode' }
+        billableStatuses:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/BillableStatus' }
+          default: [REALIZADO]
+        billingGrouping: { $ref: '#/components/schemas/BillingGrouping' }
+        feeOnInsuranceOrders:
+          type: boolean
+          default: true
+          description: Padrão a confirmar (pendência da SPEC-09)
+    ClinicBillingConfig:
+      allOf:
+        - type: object
+          properties:
+            clinicId: { type: string, format: uuid }
+        - $ref: '#/components/schemas/ClinicBillingConfigInput'
+    FeeLedgerEntry:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        orderId: { type: string }
+        clinicId: { type: string, format: uuid }
+        appointmentIds: { type: array, items: { type: string, format: uuid } }
+        weekKey: { $ref: '#/components/schemas/WeekKey' }
+        feeAmountCents: { type: integer, example: 500 }
+        servicesAmountCents: { type: integer }
+        totalAmountCents: { type: integer }
+        settlementMode: { $ref: '#/components/schemas/SettlementMode' }
+        status: { $ref: '#/components/schemas/FeeStatus' }
+        triggerStatus: { $ref: '#/components/schemas/BillableStatus' }
+        boletoId: { type: string, format: uuid, nullable: true }
+        attendanceDispute: { type: boolean }
+        createdAt: { type: string, format: date-time }
+    LedgerTransitionRequest:
+      type: object
+      required: [action]
+      properties:
+        action: { type: string, enum: [RESOLVE_CHARGE, WAIVE, GENERATE_CHARGE, MARK_PAID, MARK_OVERDUE] }
+        note: { type: string, maxLength: 300 }
+    FeeLedgerPage:
+      allOf:
+        - $ref: '#/components/schemas/PageInfo'
+        - type: object
+          properties:
+            content: { type: array, items: { $ref: '#/components/schemas/FeeLedgerEntry' } }
+    Boleto:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        clinicId: { type: string, format: uuid }
+        weekKey: { $ref: '#/components/schemas/WeekKey' }
+        chargeIds: { type: array, items: { type: string, format: uuid } }
+        totalAmountCents: { type: integer }
+        method: { type: string, enum: [BOLETO, PIX], default: BOLETO, description: 'PIX previsto na Fase B (EVOL-014)' }
+        digitableLine: { type: string, nullable: true, description: 'Valor simulado na Fase A' }
+        txid: { type: string, nullable: true, description: 'Fase B: identificador da cobrança Pix (26 a 35 caracteres)' }
+        dueDate: { type: string, format: date }
+        status: { $ref: '#/components/schemas/BoletoStatus' }
+        issuedAt: { type: string, format: date-time }

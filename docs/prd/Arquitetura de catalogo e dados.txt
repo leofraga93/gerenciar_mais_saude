@@ -65,7 +65,7 @@ A experiência permite escolher regiões da lista local. Busca por endereço ou 
 
 `src/data/clinicAvailability.js` contém horários demonstrativos por clínica e considera os dias ativos de `DEFAULT_OPERATING_DAYS`, em `src/data/clinicProfileData.js`. A interface apresenta horários futuros disponíveis na fixture, incluindo a regra para não oferecer horários passados no dia atual.
 
-`createAppointmentOrder`, em `src/services/appointmentService.js`, revalida a oferta, data, horário e opção de pagamento contra os dados mock. A solicitação em lote recebe um `orderId` compartilhado e cada agendamento começa em `SOLICITADO`. O mock não reserva disponibilidade de forma concorrente nem garante exclusividade de horário.
+`createAppointmentOrder`, em `src/services/appointmentService.js`, revalida a oferta, data, horário e opção de pagamento contra os dados mock. A solicitação em lote recebe um `orderId` compartilhado e cada agendamento começa em `SOLICITADO`. O mock não reserva disponibilidade de forma concorrente nem garante exclusividade de horário. Um pedido pode incluir clínicas distintas. Token de presença, estados `REALIZADO` / `NAO_COMPARECEU` e cobrança da clínica (R$ 5,00 por par pedido-clínica, boleto semanal) estão definidos na SPEC-09; o código mock ainda pode persistir `PAGO` até essa implementação.
 
 ## 8. Filtros da vitrine e evolução
 

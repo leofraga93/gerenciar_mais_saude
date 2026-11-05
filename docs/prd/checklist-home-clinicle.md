@@ -1,8 +1,8 @@
 ### Checklist - Portais Pós-Credenciamento (GerenciarSaúde)
-Base de comparação: docs/.cursorrulesIndexHomeClinicle, SPEC-05, SPEC-07 e fluxo de negócio B2B2C.
-Roadmap transversal de evolução: `docs/prd/roadmap-evolucao.md` (itens EVOL-001 a EVOL-013).
-**Escopo desta fase:** front-end visual + mock data. **Fora de escopo agora:** banco de dados, fetch/axios real, persistência de token. **Preparar desde já:** contratos de dados, src/data/*.js, src/services/*.js, hooks compatíveis com TanStack Query.
-**Última revisão:** SPEC-05 etapas 1–5: campos jurídicos separados, status e banners de moderação, listagem administrativa e ações mock; SPEC-07 (Badge `PENDENCIA_PAGAMENTO` e Notificações WhatsApp).
+Base de comparação: docs/.cursorrulesIndexHomeClinicle, SPEC-05, SPEC-07, SPEC-09 e fluxo de negócio B2B2C.
+Roadmap transversal de evolução: `docs/prd/roadmap-evolucao.md` (itens EVOL-001 a EVOL-014).
+**Escopo desta fase:** front-end visual + mock data. **Fora de escopo agora:** banco de dados, fetch/axios real, gateway real de boleto. **Preparar desde já:** contratos de dados, src/data/*.js, src/services/*.js, hooks compatíveis com TanStack Query.
+**Última revisão:** 2026-10-28 — contrato de presença/cobrança aprovado na SPEC-09; SPEC-07 fatiada para Google Auth e WhatsApp.
 
 --------------------------------------------------------------------------------
 
@@ -61,22 +61,22 @@ Wizard em 4 etapas para criar a conta da empresa e submeter para análise da adm
 
 --------------------------------------------------------------------------------
 
-#### 3) Operação, Máquina de Estados e Cobrança Flexível (SPEC-07)
-##### 3.1 Máquina de Estados e Badge `PENDENCIA_PAGAMENTO`
+#### 3) Operação, Presença e Cobrança (SPEC-09) e canais (SPEC-07)
+##### 3.1 Máquina de Estados Operacional (SPEC-09)
 | Status | Cor Tailwind | Descrição / Ação |
 | ------ | ------ | ------ |
 | **`SOLICITADO`** | Azul (`blue-500`) | Solicitação de exames recebida. Botão "Confirmar Agendamento" ativo. |
-| **`CONFIRMADO_CLINICA`**| Amarelo (`amber-500`) | Horário e data confirmados pela clínica. |
-| **`PENDENCIA_PAGAMENTO`**| Laranja/Âmbar (`orange-500`) | **Novo Estado (SPEC-07)**: Exame confirmado ou realizado sem compensação prévia da taxa/valor do app. |
-| **`PAGO`** | Verde (`emerald-600`)| Taxa de reserva/intermediação compensada via aplicativo. |
-| **`FINALIZADO`** | Cinza (`slate-600`)| Atendimento concluído com sucesso. |
+| **`CONFIRMADO_CLINICA`**| Amarelo (`amber-500`) | Horário confirmado; token do pedido já existe (gerado na primeira confirmação). |
+| **`REALIZADO`** | Verde (`emerald-600`)| Presença no guichê (token) ou declaração do paciente. Fato gerador padrão da taxa da clínica. |
+| **`NAO_COMPARECEU`** | Cinza (`slate-600`)| Paciente declarou ausência. Taxa só se `billableStatuses` da clínica incluir este estado. |
 | **`CANCELADO`** | Vermelho (`red-500`)| Agendamento cancelado. |
 
-O contrato mock implementado hoje usa `SOLICITADO`, `CONFIRMADO_CLINICA`, `PAGO` e `CANCELADO`. `PENDENCIA_PAGAMENTO` e `FINALIZADO` são a extensão planejada da SPEC-07, ainda não ativa no serviço. `AGUARDANDO_PAGAMENTO` e `ESTORNO_SOLICITADO` não pertencem ao contrato deste projeto e não devem ser usados como aliases.
+O código mock ainda persiste `PAGO` até a implementação da SPEC-09. `PAGO`, `PENDENCIA_PAGAMENTO`, `FINALIZADO`, `AGUARDANDO_PAGAMENTO` e `ESTORNO_SOLICITADO` **não** entram no enum de agendamento da SPEC-09. Pendência e estorno são status da cobrança (`DEVIDA`, `COBRANCA_GERADA`, `LIQUIDADO`, `ESTORNADO`).
 
-*  [ ] **Sinalização no Card de Agendamento:** O componente `StatusBadge.jsx` renderiza o alerta em laranja com ícone vetorial quando a cobrança estiver pendente.
-*  [ ] **Regra "Não Cobramos Fora do App":** Todas as taxas de intermediação permanecem registradas no painel da plataforma.
-*  [ ] **Integração WhatsApp (`WhatsAppNotificationModal.jsx`):** Ações no card do agendamento para disparo pré-formatado de confirmação de exame, orientações de preparo (`descriptionPrep`) e link/boleto de cobrança via WhatsApp.
+*  [ ] **Token de presença e check-in (SPEC-09):** um token por `orderId`; check-in por clínica; taxa R$ 5,00 por par pedido-clínica.
+*  [ ] **Modos de cobrança na admin:** `REPASSE` (R$ 5,00) ou `FATURAMENTO` (soma dos particulares + R$ 5,00).
+*  [ ] **Boleto semanal mock:** `/admin/cobrancas` emite um boleto por clínica e `weekKey`.
+*  [ ] **WhatsApp (`WhatsAppNotificationModal.jsx`, SPEC-07 / EVOL-005):** confirmação e lembrete de preparo; sem PIX de taxa do paciente.
 
 --------------------------------------------------------------------------------
 
@@ -88,8 +88,8 @@ O contrato mock implementado hoje usa `SOLICITADO`, `CONFIRMADO_CLINICA`, `PAGO`
 --------------------------------------------------------------------------------
 
 #### 5) Financeiro e Perfil da Clínica
-*  [x] **Financeiro (/dashboard/financeiro):** StatCards de Receita Realizada e Prevista, Bloco PIX com cópia de chave e histórico de pagamentos.
-*  [ ] **Acompanhamento de Pendências Financeiras:** Exibição separada dos valores acumulados sob o estado `PENDENCIA_PAGAMENTO`.
+*  [x] **Financeiro (/dashboard/financeiro):** StatCards de Receita Realizada e Prevista, Bloco PIX com cópia de chave e histórico de pagamentos (baseline anterior à SPEC-09).
+*  [ ] **Cobranças da clínica (SPEC-09):** listar `DEVIDA` / boletos semanais da própria clínica; remover a narrativa de PIX de taxa do paciente.
 *  [x] **Perfil & Vitrine de Fotos (/dashboard/perfil):** Upload categorizado de fotos (Fachada, Recepção, Consultórios), foto de capa principal e pré-visualização do card da clínica.
 
 --------------------------------------------------------------------------------
@@ -102,6 +102,7 @@ O contrato mock implementado hoje usa `SOLICITADO`, `CONFIRMADO_CLINICA`, `PAGO`
 | Trava de Moderação Admin | **Em andamento (`SPEC-05`, etapas 1–5 concluídas; filtro sobre cadastros reais adiado em EVOL-006)** |
 | Dashboard + ClinicShell + Métricas | **Concluído** |
 | Catálogo de Serviços + Fotos + Convênios | **Concluído** |
-| Agenda + Máquina de Estados | **Concluído** |
-| Badge `PENDENCIA_PAGAMENTO` + WhatsApp | **Em Implementação (`SPEC-07`)** |
-| Financeiro PIX | **Concluído** |
+| Agenda + Máquina de Estados | **Concluído (mock residual com `PAGO`; troca operacional na SPEC-09)** |
+| Token, repasse semanal e modos de cobrança | **Pendente (`SPEC-09`)** |
+| Google Auth + WhatsApp | **Planejado (`SPEC-07` / EVOL-005)** |
+| Financeiro PIX (chave da clínica) | **Concluído (baseline); cobranças SPEC-09 pendentes** |

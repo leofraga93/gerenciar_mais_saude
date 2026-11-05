@@ -130,7 +130,7 @@ Cada item adicionado à **Lista de Exames** segue a estrutura de dados abaixo:
 ##### 2.8 Estado do pedido
 
 * O pedido e todos os seus agendamentos são criados em `SOLICITADO`.
-* Esta SPEC não adiciona transições de status; confirmações, pagamentos e cancelamentos continuam sob a máquina de estados e ações existentes do portal da clínica, respeitando `docs/AGENTS.md`.
+* Esta SPEC não adiciona transições de status. Confirmação, token de presença, `REALIZADO` / `NAO_COMPARECEU` e cobrança da clínica pertencem à SPEC-09. Até a SPEC-09 ser implementada, o mock residual do portal ainda usa `PAGO`.
 
 ##### 2.5 Convênios e totalização
 
@@ -218,4 +218,5 @@ Cada item adicionado à **Lista de Exames** segue a estrutura de dados abaixo:
 
 - Revisar as mensagens de convênio de `ExamCartItem` para refletir a busca para terceiros, conforme EVOL-009. A copy deve falar da oferta do serviço e da seleção do beneficiário, sem pressupor convênios do perfil do paciente.
 - A normalização da arquitetura e das referências documentais está rastreada em EVOL-013 e `docs/prd/Arquitetura de catalogo e dados.txt`.
+- Token de presença, trava de novo pedido, taxa da clínica e boleto semanal estão na SPEC-09. Um `orderId` da SPEC-06 pode conter itens de clínicas distintas; a SPEC-09 cobra R$ 5,00 por par pedido-clínica e usa um token para o pedido inteiro.
 - Estes ajustes de manutenção não alteram o contrato mock nem reabrem os critérios funcionais concluídos da SPEC-06; a implementação deverá ser detalhada em SPEC própria quando priorizada.
