@@ -207,9 +207,9 @@ paths:
       tags: [Patients]
       summary: Paciente declara se foi atendido
       description: |
-        Perfil: ROLE_USUARIO. Aceita agendamentos com data passada em CONFIRMADO_CLINICA, REALIZADO ou NAO_COMPARECEU
-        (responder depois da marcação da clínica é o que permite detectar divergência).
-        Se a resposta divergir do estado marcado pela clínica,
+        Perfil: ROLE_USUARIO. Só aceita agendamentos com data passada ainda em CONFIRMADO_CLINICA
+        (SPEC-09 §4.4); se a clínica já marcou REALIZADO, retorna 409.
+        Se a resposta divergir do estado que a clínica marcar depois,
         o agendamento recebe `attendanceDispute=true` e o lançamento da taxa vai para `EM_ANALISE`.
       parameters:
         - { $ref: '#/components/parameters/AppointmentId' }
@@ -583,7 +583,8 @@ paths:
       summary: Check-in por token na recepção
       description: |
         Perfil: ROLE_CLINICA. Lista e marca apenas os itens **desta clínica** no pedido.
-        Itens em `NAO_COMPARECEU` podem voltar a `REALIZADO` se o token for apresentado (prova de guichê).
+        Itens em `NAO_COMPARECEU` podem voltar a `REALIZADO` se o token for apresentado (prova de guichê): `checkInMethod=MANUAL_REVERSAL`, `attendanceDispute=true` e lançamento da taxa em `EM_ANALISE`.
+        Token inexistente ou sem itens desta clínica retorna sempre o mesmo 404 `TOKEN_NOT_FOUND`.
         Bloqueia após 5 falhas consecutivas (423 `TOKEN_LOCKED`).
       requestBody:
         required: true
@@ -661,10 +662,10 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/FeeLedgerPage' }
 
-  /clinics/me/boletos:
+  /clinics/me/weekly-bills:
     get:
       tags: [Billing]
-      summary: Boletos semanais da clínica
+      summary: Boletos semanais (weeklyBill) da clínica
       description: 'Perfil: ROLE_CLINICA.'
       responses:
         '200':
@@ -673,7 +674,7 @@ paths:
             application/json:
               schema:
                 type: array
-                items: { $ref: '#/components/schemas/Boleto' }
+                items: { $ref: '#/components/schemas/WeeklyBill' }
 
   /admin/clinics:
     get:
@@ -814,7 +815,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/AppointmentPage' }
 
-  /admin/charges/weekly-close:
+  /admin/weekly-bills/close:
     post:
       tags: [Admin]
       summary: Fecha a semana e emite um boleto mock por clínica
@@ -838,17 +839,17 @@ paths:
             application/json:
               schema:
                 type: array
-                items: { $ref: '#/components/schemas/Boleto' }
+                items: { $ref: '#/components/schemas/WeeklyBill' }
         '409': { $ref: '#/components/responses/Conflict' }
 
-  /admin/boletos:
+  /admin/weekly-bills:
     get:
       tags: [Admin]
       summary: Boletos emitidos
       description: 'Perfil: ROLE_ADMIN.'
       parameters:
         - { name: weekKey, in: query, schema: { $ref: '#/components/schemas/WeekKey' } }
-        - { name: status, in: query, schema: { $ref: '#/components/schemas/BoletoStatus' } }
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/WeeklyBillStatus' } }
       responses:
         '200':
           description: Boletos
@@ -856,32 +857,32 @@ paths:
             application/json:
               schema:
                 type: array
-                items: { $ref: '#/components/schemas/Boleto' }
+                items: { $ref: '#/components/schemas/WeeklyBill' }
 
-  /admin/boletos/{boletoId}/settle:
+  /admin/weekly-bills/{weeklyBillId}/settle:
     post:
       tags: [Admin]
       summary: Registra a liquidação do boleto (Fase A, manual)
       description: 'Perfil: ROLE_ADMIN. Move boleto para `LIQUIDADO` e lançamentos para `PAGA`.'
       parameters:
-        - { $ref: '#/components/parameters/BoletoId' }
+        - { $ref: '#/components/parameters/WeeklyBillId' }
       responses:
         '200':
           description: Boleto liquidado
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Boleto' }
+              schema: { $ref: '#/components/schemas/WeeklyBill' }
         '409': { $ref: '#/components/responses/Conflict' }
 
-  /admin/boletos/{boletoId}/refund:
+  /admin/weekly-bills/{weeklyBillId}/refund:
     post:
       tags: [Admin]
       summary: Estorna boleto ou lançamento (altera só a cobrança)
       description: |
-        Perfil: ROLE_ADMIN. Permitido apenas em boleto `BOLETO_EMITIDO` ou `LIQUIDADO`.
+        Perfil: ROLE_ADMIN. Permitido apenas em boleto semanal `EMITIDO` ou `LIQUIDADO`.
         O agendamento permanece `REALIZADO` ou `NAO_COMPARECEU`.
       parameters:
-        - { $ref: '#/components/parameters/BoletoId' }
+        - { $ref: '#/components/parameters/WeeklyBillId' }
       requestBody:
         required: true
         content:
@@ -896,7 +897,7 @@ paths:
           description: Boleto estornado
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Boleto' }
+              schema: { $ref: '#/components/schemas/WeeklyBill' }
         '409': { $ref: '#/components/responses/Conflict' }
 
 components:
@@ -914,7 +915,7 @@ components:
     ClinicId: { name: clinicId, in: path, required: true, schema: { type: string, format: uuid } }
     ServiceId: { name: serviceId, in: path, required: true, schema: { type: string, format: uuid } }
     PhotoId: { name: photoId, in: path, required: true, schema: { type: string, format: uuid } }
-    BoletoId: { name: boletoId, in: path, required: true, schema: { type: string, format: uuid } }
+    WeeklyBillId: { name: weeklyBillId, in: path, required: true, schema: { type: string, format: uuid } }
 
   responses:
     Unauthorized:
@@ -962,7 +963,6 @@ components:
             - OFFER_UNAVAILABLE
             - ATTENDANCE_PENDING
             - TOKEN_NOT_FOUND
-            - TOKEN_NOT_IN_CLINIC
             - TOKEN_ALREADY_USED
             - TOKEN_LOCKED
             - CHECK_IN_REQUIRED
@@ -1011,7 +1011,7 @@ components:
       description: FULL_AMOUNT é Fase B (EVOL-009)
     BillingGrouping: { type: string, enum: [INDIVIDUAL, ACCUMULATED] }
     FeeStatus: { type: string, enum: [EM_ANALISE, DEVIDA, COBRANCA_GERADA, PAGA, EM_ATRASO, ISENTA] }
-    BoletoStatus: { type: string, enum: [BOLETO_EMITIDO, LIQUIDADO, ESTORNADO] }
+    WeeklyBillStatus: { type: string, enum: [EMITIDO, LIQUIDADO, ESTORNADO] }
     WeekKey:
       type: string
       pattern: '^\d{4}-W\d{2}$'
@@ -1285,10 +1285,10 @@ components:
         priceCents: { type: integer, description: '0 quando CONVENIO' }
         descriptionPrep: { type: string }
         status: { $ref: '#/components/schemas/AppointmentStatus' }
-        cancelledBy: { type: string, enum: [PACIENTE, CLINICA], nullable: true }
+        cancelledBy: { type: string, enum: [PACIENTE, CLINICA, ADMIN], nullable: true }
         cancelReason: { type: string, nullable: true }
         checkedInAt: { type: string, format: date-time, nullable: true }
-        checkInMethod: { type: string, enum: [TOKEN, MANUAL], nullable: true }
+        checkInMethod: { type: string, enum: [TOKEN, MANUAL, MANUAL_REVERSAL], nullable: true }
         patientAttendance: { allOf: [{ $ref: '#/components/schemas/PatientAttendance' }], nullable: true }
         attendanceDispute: { type: boolean }
         createdAt: { type: string, format: date-time }
@@ -1372,7 +1372,7 @@ components:
         settlementMode: { $ref: '#/components/schemas/SettlementMode' }
         status: { $ref: '#/components/schemas/FeeStatus' }
         triggerStatus: { $ref: '#/components/schemas/BillableStatus' }
-        boletoId: { type: string, format: uuid, nullable: true }
+        weeklyBillId: { type: string, format: uuid, nullable: true }
         attendanceDispute: { type: boolean }
         createdAt: { type: string, format: date-time }
     LedgerTransitionRequest:
@@ -1387,17 +1387,17 @@ components:
         - type: object
           properties:
             content: { type: array, items: { $ref: '#/components/schemas/FeeLedgerEntry' } }
-    Boleto:
+    WeeklyBill:
       type: object
       properties:
         id: { type: string, format: uuid }
         clinicId: { type: string, format: uuid }
         weekKey: { $ref: '#/components/schemas/WeekKey' }
-        chargeIds: { type: array, items: { type: string, format: uuid } }
+        feeLedgerIds: { type: array, items: { type: string, format: uuid } }
         totalAmountCents: { type: integer }
         method: { type: string, enum: [BOLETO, PIX], default: BOLETO, description: 'PIX previsto na Fase B (EVOL-014)' }
         digitableLine: { type: string, nullable: true, description: 'Valor simulado na Fase A' }
         txid: { type: string, nullable: true, description: 'Fase B: identificador da cobrança Pix (26 a 35 caracteres)' }
         dueDate: { type: string, format: date }
-        status: { $ref: '#/components/schemas/BoletoStatus' }
+        status: { $ref: '#/components/schemas/WeeklyBillStatus' }
         issuedAt: { type: string, format: date-time }
