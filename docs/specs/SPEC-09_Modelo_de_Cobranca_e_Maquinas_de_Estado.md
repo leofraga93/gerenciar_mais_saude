@@ -1,6 +1,6 @@
 # SPEC-09: Modelo de Cobrança e Máquinas de Estado (Agendamento e Taxa)
 
-- **Status**: PENDENTE
+- **Status**: EM ANDAMENTO
 - **Data de Início**: 2026-11-03
 - **Data de Conclusão**: Em aberto
 - **Documento PRD de Referência**: `docs/prd/checklist-home-clinicle.md` (Seção 3 e 5) e `docs/prd/roadmap-evolucao.md` (EVOL-014, EVOL-015, EVOL-016, EVOL-017)
@@ -336,33 +336,33 @@ A plataforma gerará uma **cobrança Pix dinâmica** com `txid` próprio por lan
 
 ## 6. Critérios de Aceite Fechados (DoD)
 
-- [ ] `appointmentStateMachine.js` define as transições da Máquina 1 e `updateAppointmentStatus` **lança erro** (não apenas `console.warn`) em transição inválida.
-- [ ] `APPOINTMENT_STATUS` contém somente `SOLICITADO`, `CONFIRMADO_CLINICA`, `REALIZADO`, `NAO_COMPARECEU` e `CANCELADO`.
-- [ ] Check-in por token (Passo 1) grava `checkedInAt` e habilita "Marcar realizado" — **não transita para `REALIZADO` automaticamente**.
-- [ ] `REALIZADO` só é possível após `checkedInAt` preenchido; busca manual registrada como `checkInMethod: MANUAL`.
-- [ ] A primeira confirmação de qualquer item do pedido gera um token de 6 caracteres visível em `/paciente/inicio` e copiado para todos os itens do `orderId`.
-- [ ] Token **não** é invalidado em `NAO_COMPARECEU`; pode ser apresentado para reversão com `checkInMethod: MANUAL_REVERSAL`.
-- [ ] Reversão por prova de guichê marca `attendanceDispute: true` e sinaliza lançamento a `EM_ANALISE`.
-- [ ] Check-in da clínica A não afeta itens da clínica B no mesmo pedido.
-- [ ] Fato gerador da taxa: ao menos um item do grupo `orderId`+`clinicId` atinge estado cobrável → cria `feeLedger` com `weekKey` correto (`America/Bahia`).
-- [ ] Pedido com duas clínicas gera dois lançamentos independentes; o token é o mesmo.
-- [ ] Modo `FULL_AMOUNT` modelado no contrato mas sem UI ou ação que o acione na Fase A.
-- [ ] Convênio: `servicesAmount = 0.00`; taxa de R$ 5,00 incide normalmente.
-- [ ] `NAO_COMPARECEU` → `REALIZADO` possível apenas por token (prova de guichê) com log de `MANUAL_REVERSAL`.
-- [ ] Agenda da clínica oferece ações confirmar, check-in, marcar realizado, não compareceu e cancelar — sem ação de pagamento.
+- [x] `appointmentStateMachine.js` define as transições da Máquina 1 e `updateAppointmentStatus` **lança erro** (não apenas `console.warn`) em transição inválida.
+- [x] `APPOINTMENT_STATUS` contém somente `SOLICITADO`, `CONFIRMADO_CLINICA`, `REALIZADO`, `NAO_COMPARECEU` e `CANCELADO`.
+- [x] Check-in por token (Passo 1) grava `checkedInAt` e habilita "Marcar realizado" — **não transita para `REALIZADO` automaticamente**.
+- [x] `REALIZADO` só é possível após `checkedInAt` preenchido; busca manual registrada como `checkInMethod: MANUAL`.
+- [x] A primeira confirmação de qualquer item do pedido gera um token de 6 caracteres visível em `/paciente/inicio` e copiado para todos os itens do `orderId`.
+- [x] Token **não** é invalidado em `NAO_COMPARECEU`; pode ser apresentado para reversão com `checkInMethod: MANUAL_REVERSAL`.
+- [x] Reversão por prova de guichê marca `attendanceDispute: true` e sinaliza lançamento a `EM_ANALISE`.
+- [x] Check-in da clínica A não afeta itens da clínica B no mesmo pedido.
+- [x] Fato gerador da taxa: ao menos um item do grupo `orderId`+`clinicId` atinge estado cobrável → cria `feeLedger` com `weekKey` correto (`America/Bahia`).
+- [x] Pedido com duas clínicas gera dois lançamentos independentes; o token é o mesmo.
+- [x] Modo `FULL_AMOUNT` modelado no contrato mas sem UI ou ação que o acione na Fase A.
+- [x] Convênio: `servicesAmount = 0.00`; taxa de R$ 5,00 incide normalmente.
+- [x] `NAO_COMPARECEU` → `REALIZADO` possível apenas por token (prova de guichê) com log de `MANUAL_REVERSAL`.
+- [x] Agenda da clínica oferece ações confirmar, check-in, marcar realizado, não compareceu e cancelar — sem ação de pagamento.
 - [ ] Paciente com item `CONFIRMADO_CLINICA` sem declaração não envia novo carrinho; bloqueio com modal.
 - [ ] Declaração do paciente não solicitada quando agendamento já está em `REALIZADO`.
 - [ ] Divergência (`NOT_ATTENDED` pelo paciente + clínica marca `REALIZADO`) → `attendanceDispute: true` → `EM_ANALISE`.
 - [ ] Administração configura por clínica: `settlementMode`, `billableStatuses` e `billingGrouping`.
 - [ ] Administração visualiza e altera lançamentos conforme a Máquina 2 em `/admin/cobrancas`.
 - [ ] `/admin/cobrancas` emite um `weeklyBill` mock por clínica ao fechar a semana ISO informada.
-- [ ] Estorno **não implementado** na Fase A; `ESTORNADO` modelado mas sem ação na UI.
-- [ ] Financeiro da clínica mostra atendimentos realizados e taxa a pagar; bloco de chave Pix removido.
+- [x] Estorno **não implementado** na Fase A; `ESTORNADO` modelado mas sem ação na UI.
+- [x] Financeiro da clínica mostra atendimentos realizados e taxa a pagar; bloco de chave Pix removido.
 - [ ] Copy de "taxa via PIX do paciente" removido de `PatientWelcomePage.jsx` e `TestimonialsCarousel.jsx`.
-- [ ] Todas as mensagens de token usam a mensagem genérica para inexistente/inválido/sem itens desta clínica.
-- [ ] Zero emojis; `StatusBadge`, `StatCard`, `FormField`, `ClinicActionBanner` e `Toast` reutilizados.
-- [ ] Linter roda 100% limpo (`npm run lint`).
-- [ ] Build da aplicação compila com sucesso (`npm run build`).
+- [x] Todas as mensagens de token usam a mensagem genérica para inexistente/inválido/sem itens desta clínica.
+- [x] Zero emojis; `StatusBadge`, `StatCard`, `FormField`, `ClinicActionBanner` e `Toast` reutilizados.
+- [x] Linter roda 100% limpo (`npm run lint`).
+- [x] Build da aplicação compila com sucesso (`npm run build`).
 
 ---
 

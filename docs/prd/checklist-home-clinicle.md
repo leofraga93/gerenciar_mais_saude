@@ -71,10 +71,10 @@ Wizard em 4 etapas para criar a conta da empresa e submeter para análise da adm
 | **`NAO_COMPARECEU`** | Cinza (`slate-600`)| Paciente declarou ausência. Taxa só se `billableStatuses` da clínica incluir este estado. |
 | **`CANCELADO`** | Vermelho (`red-500`)| Agendamento cancelado. |
 
-O código mock ainda persiste `PAGO` até a implementação da SPEC-09. `PAGO`, `PENDENCIA_PAGAMENTO`, `FINALIZADO`, `AGUARDANDO_PAGAMENTO` e `ESTORNO_SOLICITADO` **não** entram no enum de agendamento da SPEC-09. Pendência e estorno são status da cobrança (`DEVIDA`, `COBRANCA_GERADA`, `LIQUIDADO`, `ESTORNADO`).
+O status legado `PAGO` foi completamente eliminado do código em conformidade com a SPEC-09. `PAGO`, `PENDENCIA_PAGAMENTO`, `FINALIZADO`, `AGUARDANDO_PAGAMENTO` e `ESTORNO_SOLICITADO` **não** entram no enum de agendamento. Pendência e estorno pertencem exclusivamente à Máquina 2 da cobrança (`DEVIDA`, `COBRANCA_GERADA`, `PAGA`, `EM_ATRASO`, `ISENTA`).
 
-*  [ ] **Token de presença e check-in (SPEC-09):** um token por `orderId`; check-in por clínica; taxa R$ 5,00 por par pedido-clínica.
-*  [ ] **Modos de cobrança na admin:** `REPASSE` (R$ 5,00) ou `FATURAMENTO` (soma dos particulares + R$ 5,00).
+*  [x] **Token de presença e check-in (SPEC-09):** um token por `orderId`; check-in por clínica; taxa R$ 5,00 por par pedido-clínica disparada via `feeLedgerService`.
+*  [ ] **Modos de cobrança na admin:** `FEE_ONLY` (R$ 5,00) ou `FULL_AMOUNT` (Fase B).
 *  [ ] **Boleto semanal mock:** `/admin/cobrancas` emite um boleto por clínica e `weekKey`.
 *  [ ] **WhatsApp (`WhatsAppNotificationModal.jsx`, SPEC-07 / EVOL-005):** confirmação e lembrete de preparo; sem PIX de taxa do paciente.
 
@@ -88,8 +88,8 @@ O código mock ainda persiste `PAGO` até a implementação da SPEC-09. `PAGO`, 
 --------------------------------------------------------------------------------
 
 #### 5) Financeiro e Perfil da Clínica
-*  [x] **Financeiro (/dashboard/financeiro):** StatCards de Receita Realizada e Prevista, Bloco PIX com cópia de chave e histórico de pagamentos (baseline anterior à SPEC-09).
-*  [ ] **Cobranças da clínica (SPEC-09):** listar `DEVIDA` / boletos semanais da própria clínica; remover a narrativa de PIX de taxa do paciente.
+*  [x] **Financeiro (/dashboard/financeiro):** Bloco PIX antigo removido. StatCards de Receita Realizada (serviços) e Taxa Prevista da Plataforma (R$ 5,00/pedido), histórico de atendimentos realizados alinhado à SPEC-09.
+*  [ ] **Cobranças da clínica (SPEC-09):** listar boletos semanais emitidos pela administração; remover a narrativa de PIX de taxa do paciente.
 *  [x] **Perfil & Vitrine de Fotos (/dashboard/perfil):** Upload categorizado de fotos (Fachada, Recepção, Consultórios), foto de capa principal e pré-visualização do card da clínica.
 
 --------------------------------------------------------------------------------
@@ -102,7 +102,7 @@ O código mock ainda persiste `PAGO` até a implementação da SPEC-09. `PAGO`, 
 | Trava de Moderação Admin | **Em andamento (`SPEC-05`, etapas 1–5 concluídas; filtro sobre cadastros reais adiado em EVOL-006)** |
 | Dashboard + ClinicShell + Métricas | **Concluído** |
 | Catálogo de Serviços + Fotos + Convênios | **Concluído** |
-| Agenda + Máquina de Estados | **Concluído (mock residual com `PAGO`; troca operacional na SPEC-09)** |
-| Token, repasse semanal e modos de cobrança | **Pendente (`SPEC-09`)** |
+| Agenda + Máquina de Estados | **Concluído (Máquina de Estados SPEC-09 com REALIZADO e NAO_COMPARECEU; PAGO eliminado)** |
+| Token, repasse semanal e modos de cobrança | **Em andamento (`SPEC-09`: motor de agendamento, check-in e fato gerador concluídos; emissão de boletos na admin pendente)** |
 | Google Auth + WhatsApp | **Planejado (`SPEC-07` / EVOL-005)** |
-| Financeiro PIX (chave da clínica) | **Concluído (baseline); cobranças SPEC-09 pendentes** |
+| Financeiro da Clínica | **Concluído (modelo de taxa R$ 5,00 e recebimentos do guichê; chave PIX mock removida)** |
