@@ -53,9 +53,10 @@ function ClinicDashboardPage() {
   const metrics = useMemo(() => {
     const todayList = appointments.filter((a) => a.date === today)
     const pending = appointments.filter((a) => a.status === APPOINTMENT_STATUS.SOLICITADO)
-    const paid = appointments.filter((a) => a.status === APPOINTMENT_STATUS.PAGO)
-    const revenue = paid.reduce((acc, a) => acc + (a.price || 0), 0)
-    return { todayList, pending, paid, revenue }
+    const confirmed = appointments.filter((a) => a.status === APPOINTMENT_STATUS.CONFIRMADO_CLINICA)
+    const completed = appointments.filter((a) => a.status === APPOINTMENT_STATUS.REALIZADO)
+    const revenue = completed.reduce((acc, a) => acc + (a.price || 0), 0)
+    return { todayList, pending, confirmed, completed, revenue }
   }, [appointments, today])
 
   // Últimos 5 agendamentos ordenados por data/hora decrescente
@@ -127,15 +128,15 @@ function ClinicDashboardPage() {
           />
           <StatCard
             label="Atendimentos Confirmados"
-            value={metrics.paid.length + appointments.filter((a) => a.status === APPOINTMENT_STATUS.CONFIRMADO_CLINICA).length}
-            sub="pagos + confirmados"
+            value={metrics.confirmed.length + metrics.completed.length}
+            sub="confirmados e realizados"
             icon={IconCheckCircle}
             color="emerald"
           />
           <StatCard
             label="Receita Estimada"
             value={formatCurrencyBRL(metrics.revenue)}
-            sub="agendamentos pagos (mock)"
+            sub="atendimentos realizados"
             icon={IconCreditCard}
             color="violet"
           />
@@ -203,7 +204,7 @@ function ClinicDashboardPage() {
         {[
           { label: 'Meus Serviços', desc: 'Gerencie o catálogo de exames e consultas', to: '/dashboard/servicos', color: 'emerald' },
           { label: 'Agenda', desc: 'Confirme e acompanhe os agendamentos', to: '/dashboard/agenda', color: 'blue' },
-          { label: 'Financeiro', desc: 'Resumo de receitas e chave PIX', to: '/dashboard/financeiro', color: 'violet' },
+          { label: 'Financeiro', desc: 'Resumo de receitas e taxa da plataforma', to: '/dashboard/financeiro', color: 'violet' },
         ].map((item) => (
           <Link
             key={item.to}

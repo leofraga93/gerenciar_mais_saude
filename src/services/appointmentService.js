@@ -1,10 +1,31 @@
-import { DEFAULT_APPOINTMENTS, APPOINTMENT_STATUS, canTransitionAppointment } from '../data/appointments'
+import { DEFAULT_APPOINTMENTS } from '../data/appointments'
+import {
+  APPOINTMENT_STATUS,
+  APPOINTMENT_ROLES,
+  validateTransition,
+  normalizeRole,
+} from './appointmentStateMachine'
 import { MOCK_SERVICES_CATALOG } from '../data/catalogData'
 import { getAvailableClinicSlots } from '../data/clinicAvailability'
 import { INSURANCES } from '../data/insurances'
+import { recordFeeTriggerForAppointment } from './feeLedgerService'
 
 const APPOINTMENTS_STORAGE_KEY = 'gerenciar_saude_appointments_v1'
 const MOCK_DELAY_MS = 300
+
+const TOKEN_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'
+
+/**
+ * Gera token alfanumérico seguro de 6 caracteres (sem caracteres ambíguos 0/O, 1/I).
+ */
+export function generateCheckInToken() {
+  let token = ''
+  for (let i = 0; i < 6; i++) {
+    const idx = Math.floor(Math.random() * TOKEN_ALPHABET.length)
+    token += TOKEN_ALPHABET[idx]
+  }
+  return token
+}
 
 function createId(prefix) {
   return `${prefix}-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`}`
@@ -13,7 +34,6 @@ function createId(prefix) {
 function getClinicForService(serviceId, clinicId) {
   const service = MOCK_SERVICES_CATALOG.find((item) => item.id === serviceId && item.clinic.id === clinicId)
   if (!service) return null
-  // As clínicas publicadas no catálogo mock representam ofertas ativas e aprovadas nesta fase.
   return { ...service.clinic, active: true, statusAprovacao: 'APROVADO' }
 }
 
@@ -77,6 +97,7 @@ export function createAppointmentOrder({ items, patient }) {
             orderId,
             patientId: patient.id,
             patientName: patient.fullName,
+            patientPhone: patient.phone || '(71) 98888-0000',
             clinicId: item.clinicId,
             clinicName: item.clinicName,
             examId: item.examId,
@@ -95,6 +116,12 @@ export function createAppointmentOrder({ items, patient }) {
             status: APPOINTMENT_STATUS.SOLICITADO,
             descriptionPrep: item.descriptionPrep || '',
             prepInstructions: item.descriptionPrep || '',
+            checkInToken: null,
+            tokenIssuedAt: null,
+            checkedInAt: null,
+            checkInMethod: null,
+            patientAttendance: null,
+            attendanceDispute: false,
             createdAt: now,
           }
         })
@@ -168,19 +195,31 @@ export function saveAppointment(payload) {
       } else {
         saved = {
           id: `apt-${Date.now()}`,
+          orderId: payload.orderId || createId('ORD'),
           patientName: payload.patientName.trim(),
           patientPhone: payload.patientPhone || '(71) 99999-0000',
           patientCpf: payload.patientCpf || '***.***.***-**',
           serviceName: payload.serviceName.trim(),
+          examName: payload.serviceName.trim(),
           serviceCategory: payload.serviceCategory || 'outros',
           date: payload.date || new Date().toISOString().split('T')[0],
           time: payload.time || '10:00',
+          selectedDate: payload.date || new Date().toISOString().split('T')[0],
+          selectedTimeSlot: payload.time || '10:00',
           status: payload.status || APPOINTMENT_STATUS.SOLICITADO,
+          paymentType: payload.paymentType || 'PARTICULAR',
           insurance: payload.insurance || 'Particular',
           price: parseFloat(payload.price) || 100.0,
           paymentMethod: payload.paymentMethod || 'A definir',
           prepInstructions: payload.prepInstructions || 'Trazer documento com foto.',
+          descriptionPrep: payload.prepInstructions || 'Trazer documento com foto.',
           notes: payload.notes || '',
+          checkInToken: null,
+          tokenIssuedAt: null,
+          checkedInAt: null,
+          checkInMethod: null,
+          patientAttendance: null,
+          attendanceDispute: false,
           createdAt: new Date().toISOString(),
         }
         updatedList = [saved, ...appointments]
@@ -193,39 +232,186 @@ export function saveAppointment(payload) {
 }
 
 /**
- * Transição de status da Máquina de Estados:
- * SOLICITADO -> CONFIRMADO_CLINICA -> PAGO
- * PAGO e CANCELADO sÃ£o estados terminais.
+ * Realiza o Check-in (Passo 1) de um agendamento.
+ * Registra checkedInAt e checkInMethod sem alterar o status (permanece CONFIRMADO_CLINICA).
+ * Habilita a ação "Marcar Realizado" para a clínica.
+ *
+ * @param {string} id ID do agendamento
+ * @param {object} [options]
+ * @param {string} [options.token] Código informado pelo paciente
+ * @param {string} [options.method] 'TOKEN' | 'MANUAL' (default: 'TOKEN')
  */
-export function updateAppointmentStatus(id, newStatus, reason = '') {
+export function checkInAppointment(id, options = {}) {
   return new Promise((resolve, reject) => {
     setTimeout(() => {
-      const appointments = loadAppointmentsFromStorage()
-      const appointment = appointments.find((item) => item.id === id)
+      try {
+        const appointments = loadAppointmentsFromStorage()
+        const appointment = appointments.find((item) => item.id === id)
 
-      if (!appointment) {
-        reject(new Error('Agendamento não encontrado'))
-        return
+        if (!appointment) {
+          throw new Error('Agendamento não encontrado.')
+        }
+
+        if (appointment.status !== APPOINTMENT_STATUS.CONFIRMADO_CLINICA) {
+          throw new Error('O check-in só pode ser realizado em agendamentos com vaga confirmada.')
+        }
+
+        if (appointment.checkedInAt) {
+          throw new Error('A presença deste pedido já foi registrada nesta clínica.')
+        }
+
+        const method = options.method || 'TOKEN'
+
+        if (method === 'TOKEN') {
+          const providedToken = String(options.token || '').trim().toUpperCase()
+          if (!providedToken) {
+            throw new Error('Token não encontrado. Confira o código informado pelo paciente.')
+          }
+
+          // Se o agendamento possuir token gerado, deve coincidir
+          if (appointment.checkInToken && appointment.checkInToken.toUpperCase() !== providedToken) {
+            throw new Error('Token não encontrado. Confira o código informado pelo paciente.')
+          }
+        }
+
+        const now = new Date().toISOString()
+        const updatedItem = {
+          ...appointment,
+          checkedInAt: now,
+          checkInMethod: method,
+          updatedAt: now,
+        }
+
+        const updatedList = appointments.map((item) => (item.id === id ? updatedItem : item))
+        saveAppointmentsToStorage(updatedList)
+        resolve(updatedItem)
+      } catch (error) {
+        reject(error)
       }
+    }, MOCK_DELAY_MS)
+  })
+}
 
-      if (!canTransitionAppointment(appointment.status, newStatus)) {
-        const message = appointment.status === APPOINTMENT_STATUS.SOLICITADO && newStatus === APPOINTMENT_STATUS.PAGO
-          ? 'O agendamento precisa ser confirmado pela clínica antes do registro de pagamento.'
-          : 'Esta alteração não é permitida para o status atual do agendamento.'
-        reject(new Error(message))
-        return
+/**
+ * Transição de status da Máquina de Estados (SPEC-09 §4.1).
+ * Valida permissões por papel (role) e pré-requisitos (como check-in prévio para REALIZADO).
+ *
+ * @param {string} id
+ * @param {string} newStatus
+ * @param {string | object} [optionsOrReason] Se string, motivo de cancelamento. Se objeto: { role, reason, checkInMethod, token }
+ */
+export function updateAppointmentStatus(id, newStatus, optionsOrReason = '') {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      try {
+        const appointments = loadAppointmentsFromStorage()
+        const appointment = appointments.find((item) => item.id === id)
+
+        if (!appointment) {
+          throw new Error('Agendamento não encontrado.')
+        }
+
+        const options =
+          typeof optionsOrReason === 'string'
+            ? { reason: optionsOrReason, role: APPOINTMENT_ROLES.CLINICA }
+            : { role: APPOINTMENT_ROLES.CLINICA, ...optionsOrReason }
+
+        const role = normalizeRole(options.role || APPOINTMENT_ROLES.CLINICA)
+
+        const context = {
+          checkedInAt: appointment.checkedInAt,
+          checkInMethod: options.checkInMethod || appointment.checkInMethod,
+          token: options.token,
+          hasTokenProof: Boolean(options.token && appointment.checkInToken === options.token.toUpperCase().trim()),
+        }
+
+        // Validação estrita pela máquina pura
+        validateTransition(appointment.status, newStatus, role, context)
+
+        const now = new Date().toISOString()
+        let updatedItem = {
+          ...appointment,
+          status: newStatus,
+          updatedAt: now,
+        }
+
+        // Caso 1: CONFIRMAÇÃO PELA CLÍNICA -> Gera ou propaga o checkInToken único do pedido
+        let updatedList = appointments
+        if (newStatus === APPOINTMENT_STATUS.CONFIRMADO_CLINICA) {
+          const orderId = appointment.orderId
+          let orderToken = appointment.checkInToken
+
+          if (!orderToken && orderId) {
+            // Verifica se algum item do pedido já tem token
+            const existingWithToken = appointments.find(
+              (item) => item.orderId === orderId && item.checkInToken,
+            )
+            orderToken = existingWithToken ? existingWithToken.checkInToken : generateCheckInToken()
+          }
+
+          if (orderToken) {
+            updatedItem.checkInToken = orderToken
+            updatedItem.tokenIssuedAt = appointment.tokenIssuedAt || now
+
+            // Propaga para todos os itens do mesmo pedido
+            updatedList = updatedList.map((item) => {
+              if (item.orderId === orderId) {
+                return {
+                  ...item,
+                  checkInToken: orderToken,
+                  tokenIssuedAt: item.tokenIssuedAt || now,
+                }
+              }
+              return item
+            })
+          }
+        }
+
+        // Caso 2: CANCELAMENTO
+        if (newStatus === APPOINTMENT_STATUS.CANCELADO) {
+          updatedItem.cancelledBy =
+            role === APPOINTMENT_ROLES.PACIENTE
+              ? 'PACIENTE'
+              : role === APPOINTMENT_ROLES.ADMIN
+                ? 'ADMIN'
+                : 'CLINICA'
+          updatedItem.cancelReason = options.reason || 'Cancelado pela operação.'
+        }
+
+        // Caso 3: PROVA DE GUICHÊ (Reversão NAO_COMPARECEU -> REALIZADO)
+        if (
+          appointment.status === APPOINTMENT_STATUS.NAO_COMPARECEU &&
+          newStatus === APPOINTMENT_STATUS.REALIZADO
+        ) {
+          updatedItem.checkInMethod = 'MANUAL_REVERSAL'
+          updatedItem.attendanceDispute = true
+          updatedItem.checkedInAt = updatedItem.checkedInAt || now
+        }
+
+        // Caso 4: REALIZADO com busca manual direta
+        if (newStatus === APPOINTMENT_STATUS.REALIZADO && !updatedItem.checkedInAt) {
+          if (options.checkInMethod === 'MANUAL') {
+            updatedItem.checkedInAt = now
+            updatedItem.checkInMethod = 'MANUAL'
+          }
+        }
+
+        updatedList = updatedList.map((item) => (item.id === id ? updatedItem : item))
+        saveAppointmentsToStorage(updatedList)
+
+        // Fato Gerador da Taxa (Máquina 2 - feeLedger):
+        // Disparado ao transitar para estado faturável (REALIZADO ou NAO_COMPARECEU)
+        if (
+          newStatus === APPOINTMENT_STATUS.REALIZADO ||
+          newStatus === APPOINTMENT_STATUS.NAO_COMPARECEU
+        ) {
+          recordFeeTriggerForAppointment(updatedItem, updatedList)
+        }
+
+        resolve(updatedItem)
+      } catch (error) {
+        reject(error)
       }
-
-      const updatedItem = {
-        ...appointment,
-        status: newStatus,
-        cancelReason: newStatus === APPOINTMENT_STATUS.CANCELADO ? reason : undefined,
-        updatedAt: new Date().toISOString(),
-      }
-      const updatedList = appointments.map((item) => item.id === id ? updatedItem : item)
-
-      saveAppointmentsToStorage(updatedList)
-      resolve(updatedItem)
     }, MOCK_DELAY_MS)
   })
 }

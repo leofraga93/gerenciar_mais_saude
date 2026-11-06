@@ -3,6 +3,7 @@ import {
   deleteAppointment,
   getAppointments,
   updateAppointmentStatus,
+  checkInAppointment,
 } from '../services/appointmentService'
 import { appointmentsQueryKey } from '../constants/appointmentQueryKeys'
 
@@ -17,14 +18,29 @@ export function useAppointments() {
 }
 
 /**
- * Transição de status via Máquina de Estados.
- * Ao resolver, invalida o cache para forçar re-fetch.
+ * Transição de status via Máquina de Estados (SPEC-09).
+ * Ao resolver, invalida o cache para sincronizar a UI.
  */
 export function useUpdateAppointmentStatus() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, newStatus, reason }) =>
-      updateAppointmentStatus(id, newStatus, reason),
+    mutationFn: ({ id, newStatus, reason, role, checkInMethod, token }) =>
+      updateAppointmentStatus(id, newStatus, { reason, role, checkInMethod, token }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: APPOINTMENTS_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: ['fee-ledger'] })
+    },
+  })
+}
+
+/**
+ * Check-in de agendamento (Passo 1: confirmação de chegada).
+ * Registra checkedInAt e habilita a conclusão do atendimento.
+ */
+export function useCheckInAppointment() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, token, method }) => checkInAppointment(id, { token, method }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: APPOINTMENTS_QUERY_KEY })
     },
