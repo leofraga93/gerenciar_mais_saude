@@ -86,6 +86,14 @@ function ClinicNicheView({ onOpenAuth, onGoToSignup }) {
               </li>
             ))}
           </ol>
+          <div className="mt-6 rounded-xl border border-blue-200 bg-white px-5 py-4 text-sm text-slate-700">
+            <p className="font-semibold text-slate-900">
+              Condições comerciais para clínicas credenciadas
+            </p>
+            <p className="mt-1 leading-relaxed text-slate-600">
+              Após a aprovação do cadastro, a clínica conta com 3 meses (90 dias) de uso gratuito ilimitado na plataforma. Depois do período de teste, o plano mensal é de R$ 99,00/mês, sem cobrança de taxa por exame realizado.
+            </p>
+          </div>
         </section>
 
         <TestimonialsCarousel audience="clinic" />

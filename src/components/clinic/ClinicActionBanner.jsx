@@ -25,25 +25,42 @@ export default function ClinicActionBanner({
   actions = null,
 }) {
   const isSuccess = type === 'success'
+  const isInfo = type === 'info'
 
   const IconComponent = CustomIcon || (isSuccess ? IconCheck : IconCamera)
   const ActionIconComponent = CustomActionIcon || (isSuccess ? IconCamera : IconUpload)
 
-  const borderClass = isSuccess ? 'border-emerald-200' : 'border-amber-200'
+  const borderClass = isSuccess
+    ? 'border-emerald-200'
+    : isInfo
+      ? 'border-blue-200'
+      : 'border-amber-200'
   const bgClass = isSuccess
     ? 'bg-gradient-to-r from-emerald-50 via-white to-slate-50'
-    : 'bg-gradient-to-r from-amber-50 via-white to-amber-50/70'
+    : isInfo
+      ? 'bg-gradient-to-r from-blue-50 via-white to-slate-50'
+      : 'bg-gradient-to-r from-amber-50 via-white to-amber-50/70'
   const iconBoxClass = isSuccess
     ? 'bg-emerald-600 text-white shadow-xs'
-    : 'bg-amber-500 text-white shadow-xs'
+    : isInfo
+      ? 'bg-blue-600 text-white shadow-xs'
+      : 'bg-amber-500 text-white shadow-xs'
   const badgeClass = isSuccess
     ? 'bg-emerald-100 text-emerald-800'
-    : 'bg-amber-100 text-amber-800'
-  const badgeDetailClass = isSuccess ? 'text-emerald-900' : 'text-amber-900'
+    : isInfo
+      ? 'bg-blue-100 text-blue-800'
+      : 'bg-amber-100 text-amber-800'
+  const badgeDetailClass = isSuccess
+    ? 'text-emerald-900'
+    : isInfo
+      ? 'text-blue-900'
+      : 'text-amber-900'
 
   const buttonClass = isSuccess
     ? 'inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-slate-800 transition cursor-pointer'
-    : 'inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-amber-700 transition cursor-pointer'
+    : isInfo
+      ? 'inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-blue-700 transition cursor-pointer'
+      : 'inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-amber-700 transition cursor-pointer'
 
   return (
     <section

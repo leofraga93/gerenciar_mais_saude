@@ -1,9 +1,9 @@
 ### Checklist - Credenciamento do Paciente, Agendamento Web e Evolução Mobile
-Base de comparação: docs/checklist-landing-page.md, SPEC-06, SPEC-07, SPEC-09 e requisitos de negócio B2B2C.
-Roadmap transversal de evolução: `docs/prd/roadmap-evolucao.md` (itens EVOL-001 a EVOL-014; geocodificação em EVOL-002, Google Auth e WhatsApp em EVOL-005, boleto real em EVOL-014).
+Base de comparação: `docs/prd/checklist-landing-page.md`, SPEC-06, SPEC-07, SPEC-09 e requisitos de negócio B2B2C.
+Roadmap transversal de evolução: `docs/prd/roadmap-evolucao.md` (itens EVOL-001 a EVOL-021; geocodificação em EVOL-002, Google Auth e WhatsApp em EVOL-005, Pix dinâmico em EVOL-014, Zelo IA em EVOL-018).
 **Escopo desta fase:** Front-end visual + Mock Data + Reaproveitamento de componentes e utilitários.
-**Fora de escopo agora:** Banco de dados PostgreSQL, fetch/axios real, integração com API Spring Boot, gateway real de boleto.
-**Última revisão:** 2026-10-28 — contrato de token/presença e trava de novo pedido na SPEC-09; Google Auth e WhatsApp permanecem SPEC-07 / EVOL-005.
+**Fora de escopo agora:** Banco de dados PostgreSQL, fetch/axios real, integração com API Spring Boot, gateway real de Pix.
+**Última revisão:** 2026-11-18 — taxa única de R$ 5,00 por `orderId` paga pelo paciente, token + quitação no topo de `/paciente/inicio`, CTA de agendamento e edição cadastral na SPEC-09.
 
 --------------------------------------------------------------------------------
 
@@ -59,10 +59,13 @@ Landing neutra (/) ──► Visão Paciente ──► Vitrine / localização (
 
 --------------------------------------------------------------------------------
 
-##### 2.4 Token de presença e trava de novo pedido (SPEC-09)
-*  [ ] **Token único por `orderId`:** gerado na primeira confirmação da clínica; visível em `/paciente/inicio`; válido nas clínicas do pedido.
-*  [ ] **Declaração obrigatória:** se houver item `CONFIRMADO_CLINICA` sem check-in, o paciente declara comparecimento por clínica antes de enviar novo carrinho.
-*  [ ] **Copy:** remover a afirmação de taxa de R$ 5,00 via PIX paga pelo paciente.
+##### 2.4 Token de presença, Taxa Única ao Paciente e Portal Completo (SPEC-09)
+*  [x] **Banner B2C em `/paciente/inicio`:** Exibir *"Cadastro concluído com sucesso! Seja muito bem-vindo(a) à Gerenciar Mais Saúde!"* (sem rótulo B2B de credenciamento) com CTA para **Buscar e agendar exames** (`/?nicho=paciente#catalogo-paciente`) e **Alterar cadastro**.
+*  [x] **Acesso prioritário no topo:** Exibir logo no topo da área do paciente qualquer token ativo (`CONFIRMADO_CLINICA`) para apresentação presencial e pendência de taxa de R$ 5,00 (`orderFee === 'PENDENTE_PAGAMENTO'`) com ação de quitação à vista (PIX mock).
+*  [x] **Token único por `orderId` e Taxa de R$ 5,00:** Gerado na primeira confirmação de qualquer clínica do pedido; `orderFee` única de R$ 5,00 por `orderId` (mesmo com múltiplas clínicas/exames ou convênio).
+*  [x] **Trava obrigatória de novo pedido:** Impedir submissão de novo carrinho enquanto houver qualquer `orderFee` em `PENDENTE_PAGAMENTO` (`FEE_PAYMENT_PENDING`) ou item passado em `CONFIRMADO_CLINICA` sem declaração de comparecimento (`ATTENDANCE_PENDING`).
+*  [x] **Edição cadastral ("Alterar cadastro"):** Permitir editar telefone, e-mail e convênios mantendo CPF, nome completo e data de nascimento fixos.
+*  [x] **Bloco lateral "Sua Saúde no Bolso!":** Exibir os 4 benefícios solicitados (incluindo taxa de R$ 5,00 à vista por requisição), 100% com ícones vetoriais (zero emojis) e alinhamento visual sem espaço ocioso em *Dados do Paciente*.
 
 #### 3) Canais Digitais e Autenticação (SPEC-07)
 *  [ ] **Google Auth (`AuthModal.jsx`, EVOL-005):** Integração OAuth/OIDC futura, dependente de configuração de provedor e validação segura de tokens.
@@ -80,6 +83,7 @@ Landing neutra (/) ──► Visão Paciente ──► Vitrine / localização (
 | **Busca para Terceiros (`LocationSearchInput`)** | **Concluído (mock; API futura EVOL-002)** | `src/components/patient/LocationSearchInput.jsx` / `src/data/locationCatalog.js` |
 | **Revisão e Resumo de Pedidos** | **Concluído (SPEC-06 web mock)** | `src/components/patient/ExamRequestReviewModal.jsx` / `src/components/patient/OrderSummaryModal.jsx` / `src/components/patient/PatientRecentOrdersCard.jsx` |
 | **Consulta de Pedidos (`usePatientAppointments`)** | **Concluído (SPEC-06 web mock)** | `src/hooks/usePatientAppointments.js` / `src/pages/PatientWelcomePage.jsx` |
-| **Token de presença e trava de novo pedido** | **Pendente (SPEC-09)** | `/paciente/inicio` |
+| **Token de presença, taxa R$ 5,00 ao paciente e gestão do portal** | **Concluído (`SPEC-09` web mock)** | `src/pages/PatientWelcomePage.jsx` / `src/components/patient/PatientTopPriorityBar.jsx` / `src/components/patient/PatientProfileEditModal.jsx` |
 | **Google Auth (`AuthModal`)** | **Futuro (EVOL-005; integração externa)** | `src/components/landing/AuthModal.jsx` |
 | **Notificações via WhatsApp** | **Futuro (EVOL-005; integração externa)** | Roadmap de evolução |
+| **Mascote e Chatbot IA (Zelo)** | **Futuro (EVOL-018)** | Roadmap de evolução |

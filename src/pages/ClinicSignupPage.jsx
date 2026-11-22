@@ -415,11 +415,11 @@ function ClinicSignupPage() {
                   />
                 </Field>
                 <Field
-                  label="Telefone / WhatsApp comercial"
+                  label="Telefone / WhatsApp direto do responsável"
                   htmlFor="phone"
                   required
                   error={errors.phone}
-                  hint="DDD + número. Celular: 11 dígitos começando com 9 após o DDD."
+                  hint="DDD + 10 ou 11 dígitos para contato direto com a administração da plataforma (não substitui o telefone comercial da clínica)."
                 >
                   <input
                     id="phone"
@@ -482,10 +482,17 @@ function ClinicSignupPage() {
                       <dd className="font-medium text-right">{form.managerName.trim() || '—'}</dd>
                     </div>
                     <div className="flex justify-between gap-4">
-                      <dt className="text-slate-500">Telefone</dt>
+                      <dt className="text-slate-500">Telefone direto do responsável</dt>
                       <dd className="font-medium text-right">{form.phone || '—'}</dd>
                     </div>
                   </dl>
+                </section>
+
+                <section className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 text-sm text-emerald-950">
+                  <h2 className="font-semibold text-emerald-900">Período de teste e plano mensal</h2>
+                  <p className="mt-1 text-xs leading-relaxed text-emerald-900">
+                    Após a aprovação do cadastro pela administração, sua clínica terá 3 meses (90 dias) de uso gratuito ilimitado. Ao término do período, será enviado o plano mensal de R$ 99,00/mês; caso o período vença sem adesão, a clínica é suspensa até regularização.
+                  </p>
                 </section>
 
                 <div>

@@ -381,21 +381,24 @@ function PatientNicheView({ onOpenAuth, onGoToSignup, onAddToCart }) {
         </section>
 
         <section id="jornada-paciente" className="rounded-2xl bg-gradient-to-br from-emerald-800 via-emerald-700 to-teal-800 p-6 text-white shadow-md md:p-9">
-          <h2 className="text-2xl font-bold md:text-3xl">Informação clara em cada etapa</h2>
+          <h2 className="text-2xl font-bold md:text-3xl">Informação clara em cada etapa!</h2>
           <div className="mt-7 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              ['01', 'Encontre exames e especialistas', 'Busque por região, convênio, especialidade ou exame.'],
-              ['02', 'Escolha como quer ser atendido', 'Compare opções e conheça os valores de referência.'],
-              ['03', 'Prepare-se com tranquilidade', 'Consulte as orientações necessárias para o atendimento.'],
-              ['04', 'Acompanhe sua jornada', 'Tenha mais clareza sobre as informações do seu atendimento.'],
+              ['01', 'Encontre exames e especialistas.', 'Busque por região, convênio, especialidade ou tipo de exame.'],
+              ['02', 'Escolha como e onde quer ser atendido.', 'Compare valores e conheça outras opções de referência para fazer a melhor escolha.'],
+              ['03', 'Prepare-se com tranquilidade.', 'Consulte todas as orientações necessárias para o seu atendimento.'],
+              ['04', 'Pague a taxa de agendamento e acompanhe sua jornada', 'com acesso a todas as informações necessárias para realizar o procedimento escolhido com mais facilidade, tranquilidade, cuidado e segurança que a Gerenciar Mais Saúde oferece.'],
             ].map(([number, title, description]) => (
               <article key={number} className="rounded-xl border border-white/15 bg-white/10 p-4">
-                <p className="text-sm font-bold text-emerald-200">{number}</p>
+                <p className="text-sm font-bold text-emerald-200 tabular-nums">{number}</p>
                 <h3 className="mt-2 font-semibold text-white">{title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-emerald-50">{description}</p>
               </article>
             ))}
           </div>
+          <p className="mt-6 text-sm font-semibold text-emerald-100 md:text-base">
+            Viu como é simples e rápido?
+          </p>
         </section>
 
         <TestimonialsCarousel audience="patient" />

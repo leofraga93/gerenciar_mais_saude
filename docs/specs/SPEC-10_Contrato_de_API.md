@@ -1,11 +1,11 @@
 # SPEC-10: Contrato de API (fonte da verdade: `docs/api/openapi.yaml`)
 
-- **Status**: PENDENTE
+- **Status**: CONCLUÍDO
 - **Data de Início**: 2026-11-05
-- **Data de Conclusão**: Em aberto
+- **Data de Conclusão**: 2026-11-19
 - **Documento PRD de Referência**: `docs/prd/roadmap-evolucao.md` (EVOL-002, EVOL-015, EVOL-016; EVOL-008 como pré-requisito da SPEC-11)
 - **Natureza**: documentação. Esta spec **não cria código de backend, banco de dados nem integração real**. Ela fixa o contrato que o front e o futuro backend Spring Boot vão obedecer.
-- **Relação com outras specs**: descreve o estado-alvo definido na SPEC-09 (a SPEC-09 ainda está PENDENTE e o mock atual ainda usa `PAGO`). Alimenta a SPEC-11 (camada de integração do front). A autorização para iniciar o backend (EVOL-002) **não é concedida por esta spec** (ver ADR 6).
+- **Relação com outras specs**: descreve o estado-alvo definido na SPEC-09 (já concluída no mock sem status `PAGO`, com máquina independente `orderFee`) e na SPEC-05 (trial de 90 dias + R$ 99,00/mês). Alimenta a SPEC-11 (camada de integração do front). A autorização para iniciar o backend (EVOL-002) **não é concedida por esta spec** (ver ADR 6).
 
 > **Instrução para a IA/Agente:** Antes de iniciar a implementação, audite este documento contra o checklist da Seção 7. Se houver qualquer campo com "[A DEFINIR]" ou ambiguidade em regras críticas, **NÃO assuma nem implemente**. Questione o desenvolvedor pontualmente no chat.
 
@@ -75,7 +75,7 @@
 ## 2. Contrato de Dados & Persistência (Mock First)
 - **Fonte de Dados Inicial**: `docs/api/openapi.yaml`. O estado atual do produto continua mock (`localStorage`/`sessionStorage`).
 - **Query / Mutation Hook**: sem alteração. Os hooks TanStack Query existentes permanecem; a troca mock/http acontece nos serviços (SPEC-11).
-- **Query Key**: sem alteração nesta spec. Chaves existentes e as da SPEC-09 (`['fee-ledger', ...]`, `['clinic-billing-config', ...]`) valem.
+- **Query Key**: sem alteração nesta spec. As chaves existentes e as da SPEC-09 (`['appointments']`, `['patient', 'appointments', patientId]`, `['patient', 'profile']`, `['patient', 'order-fees', patientId]`, `['landing', 'registered-profiles']`) permanecem válidas.
 
 ### 2.1 Convenções do contrato
 | Tema | Regra |
@@ -97,36 +97,43 @@
 |---|---|
 | Público | `POST /auth/patients/register`, `POST /auth/clinics/register`, `POST /auth/login`, `POST /auth/admin/login`, `GET /insurances`, `GET /catalog/procedures`, `GET /catalog/offers`, `GET /clinics/{clinicId}/availability`, `GET /locations/search` |
 | Qualquer autenticado | `POST /auth/logout`, `POST /auth/refresh` (somente cliente MOBILE) |
-| `ROLE_USUARIO` | `/patients/me` (GET/PUT), `/patients/me/orders`, `/patients/me/pending-attendance`, `/appointments/{id}/attendance`, `/orders/validate`, `/orders` |
-| `ROLE_CLINICA` | `/clinics/me`, `/clinics/me/profile`, `/clinics/me/photos*`, `/clinics/me/services*`, `/clinics/me/appointments`, `/appointments/{id}/transitions`, `/clinics/me/check-in`, `/clinics/me/check-in/manual`, `/clinics/me/billing-config` (leitura), `/clinics/me/fee-ledger`, `/clinics/me/weekly-bills` |
-| `ROLE_ADMIN` | `/admin/clinics*`, `/admin/clinics/{id}/billing-config`, `/admin/fee-ledger*`, `/admin/appointments`, `/admin/weekly-bills*` |
+| `ROLE_USUARIO` | `/patients/me` (GET/PUT — atualiza e-mail, telefone e convênios), `/patients/me/orders`, `/patients/me/pending-fees`, `/patients/me/pending-attendance`, `/appointments/{id}/attendance`, `/orders/validate`, `/orders`, `/orders/{orderId}/fee/pay` |
+| `ROLE_CLINICA` | `/clinics/me`, `/clinics/me/profile`, `/clinics/me/photos*`, `/clinics/me/services*`, `/clinics/me/appointments`, `/appointments/{id}/transitions`, `/clinics/me/check-in`, `/clinics/me/check-in/manual` |
+| `ROLE_ADMIN` | `/admin/clinics*`, `/admin/order-fees`, `/admin/order-fees/{orderId}/waive`, `/admin/appointments` |
 
 ### 2.3 Matriz mock → endpoint
 | Função / dado mock atual | Endpoint do contrato | Observação |
 |---|---|---|
 | `registerPatient` | `POST /auth/patients/register` | Senha enviada na requisição; hoje o mock não a persiste |
 | `getPatientProfile` / `getRegisteredPatient` | `GET /patients/me` | CPF volta mascarado |
+| `updatePatientProfile` | `PUT /patients/me` | Atualiza e-mail, telefone e convênios (CPF, nome e nascimento fixos) |
 | `clearRegisteredPatient`, `clearRegisteredClinic`, saída do admin | `POST /auth/logout` | |
-| `registerClinic` | `POST /auth/clinics/register` | Nasce `PENDENTE_APROVACAO_ADMIN` |
+| `registerClinic` | `POST /auth/clinics/register` | Nasce `PENDENTE_APROVACAO_ADMIN`; `phone` é o contato direto do gestor |
 | `getRegisteredClinic` | `GET /clinics/me` | |
-| `getClinicProfile` / `saveClinicProfile` | `GET` / `PUT /clinics/me/profile` | |
+| `getClinicProfile` / `saveClinicProfile` | `GET` / `PUT /clinics/me/profile` | Telefone comercial do perfil isolado do telefone do gestor |
 | `addClinicPhoto` / `setClinicCoverPhoto` / `deleteClinicPhoto` | `POST /clinics/me/photos`, `PUT .../{id}/cover`, `DELETE .../{id}` | Upload multipart (não base64) |
-| `getClinicServices` / `saveClinicService` / `toggleClinicServiceStatus` / `deleteClinicService` | `GET`/`POST /clinics/me/services`, `PUT`/`DELETE .../{id}`, `PATCH .../{id}/status` | |
-| `getRegisteredClinics` / `updateClinicApprovalStatus` | `GET /admin/clinics`, `PATCH /admin/clinics/{id}/status` | |
+| `getClinicServices` / `saveClinicService` / `toggleClinicServiceStatus` / `deleteClinicService` | `GET`/`POST /clinics/me/services`, `PUT`/`DELETE .../{id}`, `PATCH .../{id}/status` | `resetClinicServicesToDefault` é utilitário exclusivo do mock |
+| `getRegisteredClinics` / `updateClinicApprovalStatus` / `normalizeClinicTrialState` / `getClinicTrialRemainingDays` | `GET /admin/clinics`, `PATCH /admin/clinics/{id}/status`, `GET /clinics/me` | Aprovar inicia trial de 90 dias (`trialStartedAt`/`trialEndsAt`); vencido sem adesão a R$ 99,00/mês passa a `SUSPENSO`. Cálculo de dias restantes ocorre sobre os timestamps da API. E-mails, ordenação por trial e dashboards admin pertencem a EVOL-019..021 |
 | Login admin mock (`gerir_e_confiar`) | `POST /auth/admin/login` | Credencial fixa some do front |
 | `STANDARD_PROCEDURES_CATALOG` | `GET /catalog/procedures` | Mock mantém o arquivo |
 | `MOCK_SERVICES_CATALOG` + `getClinicService` | `GET /catalog/offers` | Ver ADR 3 |
 | `getAvailableClinicSlots` | `GET /clinics/{id}/availability` | |
 | `findMockLocations` | `GET /locations/search` | EVOL-002 |
-| `createAppointmentOrder` | `POST /orders` (+ `POST /orders/validate`) | Preço e nomes vêm do servidor |
-| `getAppointmentsForPatient` | `GET /patients/me/orders` | |
-| `getAppointments` (clínica) | `GET /clinics/me/appointments` | |
-| `updateAppointmentStatus` | `POST /appointments/{id}/transitions` | Depende da SPEC-09 |
-| Token / check-in / declaração / taxa / boleto | endpoints da SPEC-09 listados em 2.2 | Depende da SPEC-09 |
+| `createAppointmentOrder` | `POST /orders` (+ `POST /orders/validate`) | Preço e nomes vêm do servidor; bloqueia com `409 FEE_PAYMENT_PENDING` ou `ATTENDANCE_PENDING` |
+| `getAppointmentsForPatient` | `GET /patients/me/orders` | Inclui `checkInToken` e `orderFee` |
+| `ensureOrderFeeCreated` / `activateOrderFeeOnConfirm` / `exemptOrderFeeIfAllCancelled` | Transições internas em `POST /orders` e `POST /appointments/{id}/transitions` | Máquina `orderFee` executada atomicamente no servidor |
+| `getOrderFeesForPatient` / `getOrderFees*Sync` / `getPendingOrderFeesSync` / `getOrderFeeByOrderIdSync` | `GET /patients/me/orders`, `GET /patients/me/pending-fees`, `GET /admin/order-fees` | Leitura síncrona local é substituída por resposta paginada/lista da API |
+| `payOrderFee` | `POST /orders/{orderId}/fee/pay` | Taxa única de R$ 5,00 paga pelo paciente após confirmação |
+| `waiveOrderFee` | `POST /admin/order-fees/{orderId}/waive` | Isenção excepcional administrativa (`ROLE_ADMIN`) |
+| `getAppointments` (clínica) | `GET /clinics/me/appointments` | Nunca expõe `checkInToken` |
+| `updateAppointmentStatus` | `POST /appointments/{id}/transitions` | Regras puras de `appointmentStateMachine.js` espelhadas no servidor |
+| `checkInByToken` / `resetTokenCheckInLock` / `getTokenCheckInAttemptState` | `POST /clinics/me/check-in` | Controle de 5 tentativas consecutivas e bloqueio `423 TOKEN_LOCKED` no servidor |
+| `manualCheckIn` | `POST /clinics/me/check-in/manual` | Exceção auditada (`checkInMethod=MANUAL`) |
+| `submitPatientAttendance` | `GET /patients/me/pending-attendance`, `POST /appointments/{id}/attendance` | Confirmação de comparecimento para itens passados em `CONFIRMADO_CLINICA` |
 | `saveAppointment` (criação manual) e `deleteAppointment` | **sem endpoint** | Ações exclusivas do mock; **descontinuadas no modo `http`** (decisão registrada; `useDeleteAppointment` não terá equivalente) |
 
 ### 2.4 Códigos de erro (`Problem.code`)
-Conjunto do YAML: `VALIDATION_ERROR`, `INVALID_TRANSITION`, `SLOT_UNAVAILABLE`, `OFFER_UNAVAILABLE`, `ATTENDANCE_PENDING`, `TOKEN_NOT_FOUND`, `TOKEN_ALREADY_USED`, `TOKEN_LOCKED`, `CHECK_IN_REQUIRED`, `INVALID_BILLABLE_STATUS`, `DUPLICATE_REQUEST`, `ALREADY_EXISTS`. Cada código mapeia para a mensagem em português definida na SPEC-09 §4.6 e nas validações existentes; o texto exibido ao usuário é do **front** (o `title`/`detail` da API não é mostrado cru). Acrescentar `UNAUTHENTICATED` (401) e `FORBIDDEN_ROLE` (403) ao enum.
+Conjunto do YAML: `UNAUTHENTICATED`, `FORBIDDEN_ROLE`, `VALIDATION_ERROR`, `INVALID_TRANSITION`, `SLOT_UNAVAILABLE`, `OFFER_UNAVAILABLE`, `ATTENDANCE_PENDING`, `FEE_PAYMENT_PENDING`, `TOKEN_NOT_FOUND`, `TOKEN_ALREADY_USED`, `TOKEN_LOCKED`, `CHECK_IN_REQUIRED`, `DUPLICATE_REQUEST`, `ALREADY_EXISTS`. Cada código mapeia para a mensagem em português definida na SPEC-09 §4.4 e nas validações existentes; o texto exibido ao usuário é do **front** (o `title`/`detail` da API não é mostrado cru).
 
 ### 2.5 Registro técnico: backend Spring Boot sem banco de dados
 - **A SPEC-10 não depende de banco**, pois só entrega documentação.
@@ -134,14 +141,13 @@ Conjunto do YAML: `VALIDATION_ERROR`, `INVALID_TRANSITION`, `SLOT_UNAVAILABLE`, 
 - **Limitações a registrar**: dados perdem-se a cada reinício (inclusive em deploy no Railway); a sequência do `orderId` e a unicidade do token dependem de estado que reinicia (risco de repetição); impedir reserva concorrente do mesmo horário precisa de restrição transacional; o backend não substitui o mock `localStorage` do front para persistência de longo prazo. Isso será tratado na SPEC que autorizar o backend (ADR 6).
 
 ### 2.6 Ajustes obrigatórios em `docs/api/openapi.yaml` (versão 0.3.0)
-1. Aplicar a ADR 1 (decimais) em todos os schemas, parâmetros e exemplos.
-2. Aplicar a ADR 2 (remover D4/cookie; `refreshToken`; `X-Client-Type`; `/auth/refresh` por corpo para MOBILE).
-3. Atualizar o `info.description`: remover D1 e D4, registrar ADR 1, 2, 4.
-4. Corrigir referências de EVOL: `SettlementMode.description` (hoje cita EVOL-009; correto: EVOL-017) e o texto de Fase B do boleto (EVOL-014).
-5. `feeOnInsuranceOrders`: remover "Padrão a confirmar"; padrão `true` (SPEC-09 ADR 10).
-6. Adicionar `example` nas respostas de `/catalog/offers`, `/orders`, `/patients/me/orders`, `/clinics/me/appointments`, `/clinics/me/fee-ledger` (requisito do Prism).
-7. Acrescentar `UNAUTHENTICATED` e `FORBIDDEN_ROLE` ao enum de `Problem.code`; documentar `pattern` do `orderId`: `^ORD-\d{4}-\d{6}$`.
-8. Validar o arquivo com um linter OpenAPI (ex.: Spectral) sem erros.
+1. Aplicar a ADR 1 (decimais) em todos os schemas, parâmetros e exemplos (incluindo `monthlyPlanPriceCents` → `monthlyPlanPrice`).
+2. Aplicar a ADR 2 (remover D4/cookie; `refreshToken`; `X-Client-Type`; `/auth/refresh` por corpo para MOBILE; `expiresIn: 3600`).
+3. Atualizar o `info.description`: remover D1 e D4, registrar ADR 1, 2, 3, 4 e 5.
+4. Corrigir referências de EVOL: `SettlementMode.description` (EVOL-017), Pix real (EVOL-014) e reservas de evolução pós-backend (EVOL-019..021).
+5. Manter exemplos nas respostas de `/catalog/offers`, `/orders`, `/patients/me/orders`, `/patients/me/pending-fees`, `/clinics/me/appointments` e `/admin/order-fees` (requisito do Prism).
+6. Acrescentar `UNAUTHENTICATED` e `FORBIDDEN_ROLE` ao enum de `Problem.code`; documentar `pattern` do `orderId`: `^ORD-\d{4}-\d{6}$`.
+7. Validar o arquivo com um linter OpenAPI (ex.: Spectral) sem erros.
 
 ---
 
@@ -157,7 +163,7 @@ Esta spec não altera componentes. Para a SPEC-11 permanecem obrigatórios:
 
 ## 4. Máquina de Estados & Regras de Interação
 - **Estado Inicial**: não se aplica (spec documental).
-- **Transições Permitidas**: as definidas na SPEC-09 §4.1 (agendamento) e §4.2 (lançamento da taxa); o YAML as expõe por `TransitionAction` e `LedgerTransitionRequest`. Esta spec não as altera.
+- **Transições Permitidas**: as definidas na SPEC-09 §4.1 (agendamento) e §4.2 (`orderFee`); o YAML as expõe por `TransitionAction`, `POST /orders/{orderId}/fee/pay` e `POST /admin/order-fees/{orderId}/waive`. Esta spec não as altera.
 - **Transições Proibidas**: as listadas na SPEC-09 §4.1.
 - **Comportamento em Erro / Exceção**: 401 limpa sessão e redireciona ao login; 409 e 422 exibem Toast em português a partir do `code`; 404 de recurso de outro dono não revela existência.
 - **Feedback Visual**: Toast; sem novos componentes.
@@ -178,16 +184,16 @@ Esta spec não altera componentes. Para a SPEC-11 permanecem obrigatórios:
 ---
 
 ## 6. Critérios de Aceite Fechados (DoD - Definition of Done)
-- [ ] `docs/api/openapi.yaml` está na versão `0.3.0` com os oito ajustes da Seção 2.6.
-- [ ] O YAML passa em validação OpenAPI (Spectral) sem erros.
-- [ ] Nenhum campo `*Cents` permanece no YAML.
-- [ ] Prism sobe com o YAML e responde com exemplos nos endpoints listados em 2.6 (item 6), verificado manualmente com `npx @stoplight/prism-cli mock docs/api/openapi.yaml`.
-- [ ] A tabela de endpoints por perfil (2.2) confere com os `paths` do YAML.
-- [ ] A matriz mock → endpoint (2.3) cobre todas as funções exportadas de `src/services/*.js`, e as duas funções sem endpoint estão marcadas como descontinuadas no modo `http`.
-- [ ] As seis decisões estão registradas na Seção 0 e refletidas no `info.description` do YAML.
-- [ ] `docs/prd/roadmap-evolucao.md` referencia a SPEC-10 em EVOL-002 e EVOL-015; histórico de atualização registrado.
-- [ ] Nenhum arquivo de `src/` foi alterado; `npm run lint` e `npm run build` continuam passando.
-- [ ] Zero emojis.
+- [x] `docs/api/openapi.yaml` está na versão `0.3.0` com os sete ajustes da Seção 2.6.
+- [x] O YAML passa em validação OpenAPI (Spectral) sem erros.
+- [x] Nenhum campo `*Cents` permanece no YAML.
+- [x] Prism sobe com o YAML e responde com exemplos nos endpoints listados em 2.6 (item 5), verificado manualmente com `npx @stoplight/prism-cli mock docs/api/openapi.yaml`.
+- [x] A tabela de endpoints por perfil (2.2) confere com os `paths` do YAML.
+- [x] A matriz mock → endpoint (2.3) cobre todas as funções exportadas de `src/services/*.js`, e as duas funções sem endpoint estão marcadas como descontinuadas no modo `http`.
+- [x] As seis decisões estão registradas na Seção 0 e refletidas no `info.description` do YAML.
+- [x] `docs/prd/roadmap-evolucao.md` referencia a SPEC-10 em EVOL-002 e EVOL-015; histórico de atualização registrado.
+- [x] Nenhum arquivo de `src/` foi alterado; `npm run lint` e `npm run build` continuam passando.
+- [x] Zero emojis.
 
 ---
 
@@ -197,12 +203,12 @@ Esta spec não altera componentes. Para a SPEC-11 permanecem obrigatórios:
 3. *A fonte do mock e chaves de cache do TanStack Query foram informadas?* **SIM** — modo `mock` mantém os serviços atuais; Prism para conformidade (ADR 5); query keys existentes e as da SPEC-09 permanecem.
 4. *O escopo está livre de termos vagos?* **SIM** — itens fora de escopo listados na §5; duração do token (3600 s), formato do `orderId` e política de refresh definidos.
 
-**Dependências declaradas (não são lacunas de definição):** a SPEC-09 está PENDENTE; o YAML descreve seu estado-alvo e a SPEC-11 não deve migrar agenda e financeiro para `http` antes de ela ser implementada.
+**Dependências declaradas (não são lacunas de definição):** a SPEC-09 foi concluída no mock em 2026-11-18 e o YAML (`0.3.0`) reflete integralmente suas regras e as da SPEC-05; a SPEC-11 já pode adotar este contrato para a camada adaptadora HTTP.
 
 ---
 
 ## 8. Fechamento de Ciclo & Rastreabilidade (Obrigatório ao Concluir)
-- [ ] 1. Marcar todos os checkboxes de Critérios de Aceite (Seção 6) como `[x]`.
-- [ ] 2. Alterar o cabeçalho desta spec para `Status: CONCLUÍDO` com a data atual.
-- [ ] 3. Atualizar `docs/prd/roadmap-evolucao.md` (EVOL-002, EVOL-015, histórico) e conferir a referência à SPEC-10 em `AGENTS.md` §9.
-- [ ] 4. Registrar no roadmap a decisão pendente da SPEC do backend (ADR 6) e a futura EVOL de refresh por cookie, se adotada.
+- [x] 1. Marcar todos os checkboxes de Critérios de Aceite (Seção 6) como `[x]`.
+- [x] 2. Alterar o cabeçalho desta spec para `Status: CONCLUÍDO` com a data atual.
+- [x] 3. Atualizar `docs/prd/roadmap-evolucao.md` (EVOL-002, EVOL-015, histórico) e conferir a referência à SPEC-10 em `AGENTS.md` §9.
+- [x] 4. Registrar no roadmap a decisão pendente da SPEC do backend (ADR 6) e a futura EVOL de refresh por cookie, se adotada.

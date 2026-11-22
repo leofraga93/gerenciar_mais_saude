@@ -1,13 +1,17 @@
 import { APPOINTMENT_STATUS_CONFIG } from '../../data/appointments'
+import { ORDER_FEE_STATUS_CONFIG } from '../../constants/billingConstants'
 
 /**
- * Badge colorido da Máquina de Estados de Agendamento.
- * Exibe ponto colorido + label. Reutilizável na Agenda, Dashboard e Financeiro.
- *
- * @param {{ status: string, size?: 'sm' | 'md' }} props
+ * Badge colorido compartilhado das Máquinas de Estado:
+ * - type="appointment" (padrão): SOLICITADO, CONFIRMADO_CLINICA, REALIZADO, NAO_COMPARECEU, CANCELADO
+ * - type="orderFee": AGUARDANDO_CONFIRMACAO, PENDENTE_PAGAMENTO, PAGA, ISENTA
  */
-export function StatusBadge({ status, size = 'md' }) {
-  const config = APPOINTMENT_STATUS_CONFIG[status]
+export function StatusBadge({ status, size = 'md', type = 'appointment' }) {
+  const config =
+    type === 'orderFee'
+      ? ORDER_FEE_STATUS_CONFIG[status]
+      : APPOINTMENT_STATUS_CONFIG[status]
+
   if (!config) return null
 
   const textSize = size === 'sm' ? 'text-[11px]' : 'text-xs'
@@ -17,7 +21,7 @@ export function StatusBadge({ status, size = 'md' }) {
     <span
       className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-semibold ${textSize} ${config.badgeClass}`}
     >
-      <span className={`shrink-0 rounded-full ${dotSize} ${config.dotClass}`} />
+      <span className={`shrink-0 rounded-full ${dotSize} ${config.dotClass}`} aria-hidden="true" />
       {config.label}
     </span>
   )

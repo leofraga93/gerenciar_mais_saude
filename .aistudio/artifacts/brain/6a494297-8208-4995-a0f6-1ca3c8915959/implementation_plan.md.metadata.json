@@ -1,0 +1,6 @@
+{
+  "summary":  "Plano de execucao para criar a SPEC-13 (Arquitetura Backend Spring Boot, PostgreSQL e Flyway), atualizar o contrato OpenAPI para v0.3.1 (upload seguro no Cloudflare R2, capacidade configuravel N vagas/horario, adesao operacional R$ 99/mes e geocodificacao ViaCEP+Nominatim) e sincronizar governanca e roadmap sem alterar codigo src/ ou criar codigo Java ainda.",
+  "updatedAt":  "2026-11-22T02:31:09.412720929Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}

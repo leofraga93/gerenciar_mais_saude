@@ -2,7 +2,7 @@
 
 * **Status**: EM ANDAMENTO
 * **Data**: 2026-10-07
-* **Última revisão**: 2026-10-12 (etapas 1–5 concluídas; EVOL-006 adiado)
+* **Última revisão**: 2026-11-18 (etapas 1–5, telefone direto do gestor na Etapa 3 e ciclo trial 90 dias / R$ 99,00 mensais concluídos; EVOL-006 adiado)
 * **Documento PRD de Referência**: `docs/prd/checklist-home-clinicle.md`
 * **Especificação Mestre**: Reformulação do Credenciamento B2B e Trava de Aprovacao Admin (Item 2 do Mapeamento)
 
@@ -49,13 +49,13 @@
 | **2. Acesso** | **E-mail Administrativo** | Sim | Formato de e-mail RFC válido, máximo 254 caracteres. |
 | **2. Acesso** | **Senha / Confirmação** | Sim | Mínimo 8 caracteres contendo letras e números. Utiliza o `PasswordInput.jsx` (segurar ícone do olho para revelar). |
 | **3. Contato** | **Nome do Responsável** | Sim | Nome completo (mínimo 2 palavras: Nome + Sobrenome), apenas letras e espaços. |
-| **3. Contato** | **Telefone / WhatsApp** | Sim | DDD válido (Brasil) + telefone fixo (10 dígitos) ou celular (11 dígitos), com máscara `(00) 00000-0000`. |
+| **3. Contato** | **Telefone / WhatsApp direto do responsável** | Sim | DDD válido (Brasil) + 10 ou 11 dígitos com máscara dinâmica `(00) 0000-0000` ou `(00) 90000-0000`, **sem trava do 3º dígito**. Uso administrativo interno da plataforma; **não** sobrescreve o telefone comercial público do perfil (`/dashboard/perfil`). |
 | **3. Contato** | **Código de Indicação** | Opcional | 4 a 30 caracteres alfanuméricos + hífen. |
 | **Perfil** | **Endereço e coordenadas** | Conforme fluxo vigente | Manter comportamento atual; não adicionar novas exigências ao wizard nesta SPEC. |
 | **Perfil** | **Galeria de Fotos** | Conforme perfil vigente | Gerenciar em `/dashboard/perfil`; não mover para o wizard. |
-| **4. Aceite** | **Termos & LGPD** | Sim | Checkbox obrigatório de consentimento. |
+| **4. Aceite** | **Termos, LGPD & Ciência do Período de Teste** | Sim | Checkbox obrigatório de consentimento + aviso explícito de que, após a aprovação (`APROVADO`), a clínica recebe **3 meses (90 dias) de uso gratuito ilimitado** e, após esse prazo, o acesso ativo requer adesão ao plano mensal de **R$ 99,00/mês** (caso contrário é suspensa até regularização). |
 
-##### 2.2 Fluxo de Moderação e Ciclo de Vida da Aprovação
+##### 2.2 Fluxo de Moderação, Período de Teste (90 dias) e Ciclo de Vida da Aprovação
 
 ```text
        Formulário /cadastro-clinica Concluído
@@ -73,27 +73,41 @@ Permitido (com banner de alerta)   BLOQUEADO (Invisível na vitrine)
          Aprovação pelo Administrador do App
                           │
                           ▼
-          statusAprovacao = 'APROVADO'
-      (Aparece na vitrine pública de exames)
+        statusAprovacao = 'APROVADO'
+  • Inicia Trial Ilimitado de 90 dias (trialStartedAt / trialEndsAt)
+  • Aparece na vitrine pública de exames
+                          │
+        Fim dos 90 dias sem adesão (R$ 99,00/mês)
+                          │
+                          ▼
+        statusAprovacao = 'SUSPENSO' (TRIAL_EXPIRED)
+  (Oculta da vitrine pública até confirmação do plano de R$ 99,00/mês)
 ```
 
-1. **Estado Inicial**: Toda clínica recém-cadastrada recebe automaticamente o campo `statusAprovacao: 'PENDENTE_APROVACAO_ADMIN'`.
-2. **Experiência Interna (Portal `/dashboard`)**:
+1. **Estado Inicial**: Toda clínica recém-cadastrada recebe automaticamente `statusAprovacao: 'PENDENTE_APROVACAO_ADMIN'` e `subscriptionStatus: 'TRIAL'`.
+2. **Início do Período de Teste (90 dias gratuitos)**:
+   * Assim que o administrador aprova a clínica (`APROVADO`), são gravados `trialStartedAt` (timestamp atual) e `trialEndsAt` (`+90 dias`), caso ainda não exista assinatura ativa (`ACTIVE_SUBSCRIPTION`).
+   * Durante os 90 dias, a clínica utiliza a plataforma de forma **ilimitada e sem cobrança por exame** (a taxa de R$ 5,00 por pedido é paga exclusivamente pelo paciente na SPEC-09).
+3. **Vencimento e Suspensão Automática (`SUSPENSO`)**:
+   * Se `now > trialEndsAt` e `subscriptionStatus !== 'ACTIVE_SUBSCRIPTION'`, a clínica tem `subscriptionStatus = 'TRIAL_EXPIRED'` e seu status de aprovação efetivo transita automaticamente para **`SUSPENSO`**, ficando invisível na busca pública até a confirmação de adesão ao plano de **R$ 99,00/mês**.
+   * Na fase mock (`clinicService.js`), o portal `/dashboard` exibe banner claro com os dias restantes do período gratuito (ou alerta de suspensão por vencimento do período de teste com orientação de adesão ao plano R$ 99,00/mês).
+4. **Experiência Interna (Portal `/dashboard`)**:
    * O gestor consegue navegar por todas as rotas do portal: `/dashboard/agenda`, `/dashboard/servicos`, `/dashboard/financeiro` e `/dashboard/perfil`.
-   * Um banner fixo `ClinicActionBanner` é renderizado no topo do painel:  
-     *"Cadastro em análise: Sua clínica e catálogo de exames estão sob verificação da administração da plataforma. Os exames ficarão visíveis para agendamento dos pacientes assim que o credenciamento for aprovado."*
-3. **Regra de Filtro da Vitrine Pública**:
+   * Um banner fixo `ClinicActionBanner` é renderizado no topo do painel conforme o estado (`PENDENTE_APROVACAO_ADMIN`, `APROVADO` em período de teste de 90 dias, `SUSPENSO` por moderação ou vencimento do teste, `REJEITADO`).
+5. **Regra de Filtro da Vitrine Pública**:
    * Quando a busca consumir serviços vinculados a cadastros de clínicas, deve retornar somente serviços de clínicas com `statusAprovacao === 'APROVADO'`.
    * Enquanto a vitrine usar o catálogo mock demonstrativo sem vínculo com cadastros, preservar essas ofertas; o filtro por moderação está adiado em EVOL-006.
+6. **Escopo Pós-Backend (Roadmap — NÃO implementar agora)**:
+   * Disparo automático de e-mails por mudança de status ou proposta de R$ 99,00/mês (`EVOL-019`), envio de relatório trimestral (`EVOL-020`), ordenação administrativa de `/admin/clinicas` por vencimento do teste e abertura de dashboards individuais/consolidados de clínicas pelo admin (`EVOL-021`) ficam restritos ao Roadmap pós-backend.
 
 ---
 
 #### 3. Fluxo, Navegação e Matriz de Casos Excepcionais
 
 ##### 3.1 Fluxo de Navegação do Usuário
-1. O gestor acessa `/cadastro-clinica` (seja por link direto ou via botão "Credenciar Minha Clínica" na Landing Page B2B).
+1. O gestor acessa `/cadastro-clinica` (seja por link direto ou via botão "Credenciar Minha Clínica" na Landing Page B2B, onde também lê sobre os 3 meses gratuitos e plano posterior de R$ 99,00/mês).
 2. Preenche os dados jurídicos informando **Razão Social** e **Nome Fantasia** separadamente.
-3. Preenche as etapas atuais de acesso, contato e aceite; endereço/coordenadas e fotos continuam nas áreas vigentes, incluindo o perfil autenticado.
+3. Preenche acesso (Etapa 2), contato direto do responsável (Etapa 3, aceitando 10 ou 11 dígitos sem trava do 3º dígito) e aceite (Etapa 4 com ciência do período de teste de 90 dias e plano mensal de R$ 99,00). Endereço/coordenadas e fotos continuam nas áreas vigentes, incluindo o perfil autenticado.
 4. Ao clicar em "Concluir Credenciamento":
    * Os dados são armazenados via `clinicService.js`.
    * O status de aprovação é definido como `PENDENTE_APROVACAO_ADMIN`.
@@ -105,8 +119,10 @@ Permitido (com banner de alerta)   BLOQUEADO (Invisível na vitrine)
 | Cenário Excepcional | Causa / Condição | Comportamento Esperado do Sistema |
 | :--- | :--- | :--- |
 | **Razão Social igual ao Nome Fantasia** | O usuário digita o mesmo texto nos dois campos. | O sistema aceita sem erros, mas mantém a gravação de ambas as chaves de forma independente. |
+| **Telefone direto com 10 dígitos ou 3º dígito livre (Etapa 3)** | Gestor informa fixo ou celular corporativo cujo 3º dígito após o DDD não começa por `9`. | Sistema aceita qualquer número com DDD brasileiro válido e 10 ou 11 dígitos, aplicando máscara dinâmica e preservando o telefone comercial em `/dashboard/perfil`. |
 | **CNPJ duplicado** | Não haverá checagem de unicidade na fase mock. | Adiar a consulta de duplicidade à futura base de dados; manter validação local do formato e DV. |
-| **Tentativa de Forçar Exibição Pública sem Aprovação** | Chamada de busca de exames tenta consultar IDs de clínica pendente. | O hook/filtro de serviços descarta os resultados de clínicas não aprovadas, retornando array vazio de exames para o paciente. |
+| **Vencimento dos 90 dias de teste sem assinatura** | `now > trialEndsAt` e `subscriptionStatus !== 'ACTIVE_SUBSCRIPTION'`. | `clinicService.js` atualiza a clínica para `SUSPENSO` (`TRIAL_EXPIRED`) e `ClinicActionBanner` solicita adesão ao plano de R$ 99,00/mês. |
+| **Tentativa de Forçar Exibição Pública sem Aprovação** | Chamada de busca de exames tenta consultar IDs de clínica pendente ou suspensa. | O hook/filtro de serviços descarta os resultados de clínicas não aprovadas, retornando array vazio de exames para o paciente. |
 | **Rejeição pelo Administrador** | Administrador marca `statusAprovacao = 'REJEITADO'`. | O banner do dashboard atualiza a mensagem: *"Credenciamento não aprovado. Entre em contato com o suporte para regularizar suas pendências cadastrais."* |
 
 ---
@@ -114,16 +130,15 @@ Permitido (com banner de alerta)   BLOQUEADO (Invisível na vitrine)
 #### 4. Critérios de Aceite (Definition of Done)
 
 * [x] O formulário em `/cadastro-clinica` possui os campos distintos de **Razão Social** e **Nome Fantasia**, ambos com validação de obrigatoriedade.
-* [ ] As etapas e os campos atuais do wizard permanecem funcionais; endereço/coordenadas seguem no fluxo vigente e as fotos continuam no perfil `/dashboard/perfil`, sem inclusão de novos campos dessas áreas no wizard.
+* [x] Etapa 3 identifica explicitamente o **telefone/WhatsApp direto do responsável**, aceita 10 ou 11 dígitos após DDD válido sem trava do 3º dígito, e `getClinicProfile()` não sobrescreve o telefone comercial do perfil com o telefone do gestor.
+* [x] A visão B2B da Landing, a Etapa 4 do credenciamento e o banner do `/dashboard` comunicam claramente os **3 meses (90 dias) gratuitos após aprovação** e a assinatura posterior de **R$ 99,00/mês**, com suspensão automática (`SUSPENSO`) ao término do prazo sem adesão.
+* [x] As etapas e os campos atuais do wizard permanecem funcionais; endereço/coordenadas seguem no fluxo vigente e as fotos continuam no perfil `/dashboard/perfil`, sem inclusão de novos campos dessas áreas no wizard.
 * [x] A submissão do credenciamento grava a clínica com o status `statusAprovacao: 'PENDENTE_APROVACAO_ADMIN'`.
 * [x] Ao acessar `/dashboard`, a clínica pendente visualiza o banner `ClinicActionBanner` informando que o cadastro está sob análise administrativa.
 * [ ] **Adiado (EVOL-006):** quando a busca consumir serviços vinculados a cadastros de clínicas, descartar clínicas sem status `APROVADO`, preservando as ofertas mock demonstrativas atuais.
 * [x] O utilitário `clinicSignupValidation.js` valida o CNPJ por algoritmo de DV e mascara telefone e CNPJ adequadamente.
 * [x] O componente `PasswordInput.jsx` é reutilizado nos campos de senha do credenciamento.
-* [ ] Nenhum emoji é utilizado na interface dos formulários ou modais, mantendo ícones vetoriais profissionais.
-
----
-
+* [x] Nenhum emoji é utilizado na interface dos formulários ou modais, mantendo ícones vetoriais profissionais.
 
 ---
 
@@ -133,7 +148,8 @@ Este adendo consolida decisões posteriores e prevalece sobre trechos anteriores
 
 ##### Decisões de escopo confirmadas
 
-* O wizard mantém suas etapas e comportamento atuais. Nesta SPEC, a alteração cadastral obrigatória é separar Razão Social (`legalName`) e Nome Fantasia (`tradeName`), ambos obrigatórios. O Nome Fantasia é o nome público da clínica.
+* O wizard mantém suas etapas e comportamento atuais. Nesta SPEC, a alteração cadastral obrigatória é separar Razão Social (`legalName`) e Nome Fantasia (`tradeName`), ambos obrigatórios, além de flexibilizar o telefone direto do responsável na Etapa 3 (10 ou 11 dígitos após DDD válido, sem trava do 3º dígito) e mantê-lo isolado do telefone comercial público em `/dashboard/perfil`.
+* Ao ser aprovada (`APROVADO`), a clínica inicia o período de teste gratuito e ilimitado de **90 dias** (`trialStartedAt`, `trialEndsAt`). Se expirar sem assinatura mensal de **R$ 99,00/mês**, transita automaticamente para `SUSPENSO`. Disparo de e-mails automáticos, relatório trimestral e evolução da tela administrativa pertencem ao Roadmap (`EVOL-019` a `EVOL-021`), fora desta fase mock.
 * Endereço e coordenadas mantêm o fluxo/fallback já existente; não adicionar novas exigências de endereço ou geolocalização ao wizard nesta etapa. A galeria de fotos continua no perfil autenticado da clínica (`/dashboard/perfil`).
 * A verificação de CNPJ duplicado fica fora do mock e será implementada com a futura base de dados. O CNPJ continua sujeito à validação local de formato e dígitos verificadores.
 * O cadastro novo inicia como `PENDENTE_APROVACAO_ADMIN`. Enquanto pendente, suspenso (`SUSPENSO`) ou rejeitado (`REJEITADO`), a clínica pode acessar o dashboard, mas seus serviços não aparecem na vitrine. Somente `APROVADO` publica serviços.
@@ -144,8 +160,8 @@ Este adendo consolida decisões posteriores e prevalece sobre trechos anteriores
 
 1. Fechar o contrato do acesso administrativo mock e as transições de moderação nesta SPEC.
 2. Adicionar o link administrativo em Navegação Rápida no rodapé da landing, abrir o modal de credenciais e proteger a rota/página `/admin/clinicas`.
-3. Separar Razão Social e Nome Fantasia no wizard, validação, resumo e persistência do cadastro, preservando as etapas e os demais fluxos existentes.
-4. Persistir o estado de moderação no serviço/hook de clínica e exibir banners coerentes para pendente, suspenso e rejeitado.
+3. Separar Razão Social e Nome Fantasia no wizard, validação, resumo e persistência do cadastro, preservando as etapas e os demais fluxos existentes; flexibilizar telefone direto do gestor na Etapa 3 e remover sobrescrita no `getClinicProfile()`.
+4. Persistir o estado de moderação + período de teste de 90 dias no serviço/hook de clínica e exibir banners coerentes para pendente, em teste (90d), suspenso e rejeitado, além de transparência dos R$ 99,00/mês na Landing B2B e Etapa 4.
 5. Implementar listagem e ações administrativas para aprovar, suspender e rejeitar clínicas.
 6. **Adiada:** filtrar serviços de clínicas cadastradas pelo status quando houver uma fonte de catálogo vinculada a esses cadastros; preservar as ofertas mock demonstrativas atuais até lá (EVOL-006).
 7. Sincronizar este DoD e `docs/prd/checklist-home-clinicle.md`; executar lint e build e conferir os fluxos ponta a ponta.
@@ -165,14 +181,14 @@ Contrato definido: o modal da landing valida o usuario `gerir_e_confiar` e a sen
 
 #### Andamento
 
-Etapas 1 (escopo), 2 (entrada admin), 3 (campos jurídicos separados), 4 (persistência do status e avisos no dashboard) e 5 (listagem e ações administrativas de moderação) concluídas. A etapa 6 está adiada: o catálogo público permanece com os dados mock para apresentações. O filtro será retomado quando os serviços públicos vierem de cadastros de clínicas, preservando as ofertas demonstrativas atuais (EVOL-006). Portanto, a SPEC-05 ainda não está concluída.
+Etapas 1 (escopo), 2 (entrada admin), 3 (campos jurídicos separados, telefone direto do gestor sem trava do 3º dígito e isolamento do perfil público), 4 (persistência do status, ciclo de 90 dias gratuitos após aprovação + plano R$ 99,00/mês, suspensão automática pós-vencimento e transparência na Landing B2B/Etapa 4) e 5 (listagem e ações administrativas de moderação) concluídas e validadas com `lint_applet` e `compile_applet`. A etapa 6 permanece adiada: o catálogo público segue com os dados mock demonstrativos até a integração com cadastros reais (EVOL-006).
 
 #### Status
 
-A SPEC-05 permanece EM ANDAMENTO. As etapas 1–5 estão concluídas; a etapa 6 está adiada como EVOL-006 até que a busca use serviços vinculados a cadastros de clínicas. Os critérios de aceite de preservação do wizard e de interface sem emojis ainda exigem conferência final.
+A SPEC-05 permanece EM ANDAMENTO apenas pelo adiamento da etapa 6 (`EVOL-006`). Todos os requisitos de credenciamento, validação da Etapa 3, período de teste de 90 dias e transparência do plano mensal de R$ 99,00 estão concluídos.
 
 ### Acompanhamento posterior (fora do escopo concluído)
 
 - A refatoração de `ClinicSignupPage` para reutilizar `FormField` e `formUtils` está mapeada em EVOL-007; a padronização de chamadas assíncronas com TanStack Query está em EVOL-008.
 - A mensagem de validação do nome fantasia e as alegações quantitativas da visão clínica estão em EVOL-009.
-- Esses itens são débitos de manutenção posteriores e não reabrem os critérios funcionais concluídos desta SPEC. A implementação deverá ter SPEC própria quando priorizada.
+- Disparo automático de e-mails de moderação/proposta R$ 99,00 (`EVOL-019`), relatório trimestral de métricas (`EVOL-020`) e ordenação/dashboards de clínicas no painel administrativo (`EVOL-021`) estão reservados ao Roadmap pós-backend.

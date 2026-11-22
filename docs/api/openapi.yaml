@@ -1,25 +1,27 @@
 openapi: 3.0.3
 info:
   title: Gerenciar Mais Saúde API
-  version: 0.2.0
+  version: 0.3.1
   description: |
-    Contrato REST entre o front (React) e o backend (Spring Boot).
-    Fonte de regras: SPEC-09 (estados, token, taxa; substitui a SPEC-08), SPEC-06 (pedido em lote), SPEC-05 (credenciamento e moderação).
+    Contrato REST entre o front (React) e o backend (Spring Boot + PostgreSQL).
+    Fonte de regras: SPEC-09 (estados, token e taxa única de R$ 5,00 por pedido paga pelo paciente; substitui a SPEC-08), SPEC-06 (pedido em lote), SPEC-05 (credenciamento, moderação e trial de 90 dias + plano R$ 99,00/mês), SPEC-10 (decisões contratuais) e SPEC-13 (arquitetura backend, banco PostgreSQL, upload R2, geocodificação e concorrência).
 
     **Convenções**
-    - Base `/api/v1`. JSON em camelCase. IDs de entidades em UUID, exceto `orderId` (ex.: `ORD-2026-000101`).
-    - Datas `YYYY-MM-DD`, horários `HH:mm` (fuso America/Bahia), timestamps ISO-8601 UTC.
-    - **Dinheiro em centavos inteiros** (`*Cents`). O front converte para reais na camada de adaptação.
-    - Erros no padrão RFC 7807 (`application/problem+json`) com campo `code`.
-    - `clinicId` e `patientId` vêm **sempre do token**, nunca do corpo.
-    - Paginação: `page` (base 0) e `size`.
+    - Base `/api/v1`. JSON em camelCase. IDs de entidades em UUID, exceto `orderId` (`^ORD-\d{4}-\d{6}$`, ex.: `ORD-2026-000101`).
+    - Datas `YYYY-MM-DD`, horários `HH:mm` (fuso `America/Bahia`), timestamps ISO-8601 UTC.
+    - **Dinheiro em reais decimais com duas casas** (`number`, `multipleOf: 0.01`, ex.: `180.75`, `5.00`; ADR 1). No backend corresponde a `BigDecimal`.
+    - Erros no padrão RFC 7807 (`application/problem+json`) com campo `code` estável (`Problem.code`).
+    - `clinicId` e `patientId` vêm **sempre do token JWT**, nunca do corpo ou da URL de perfil.
+    - Paginação: `page` (base 0) e `size` (máx. 100).
 
-    **Decisões embutidas neste contrato (confirmar antes de implementar)**
-    - D1: valores em centavos (a SPEC-09 usa decimais; o adaptador converte).
-    - D2: um token de check-in por `orderId` (SPEC-09 §4.3), 6 caracteres do alfabeto `23456789ABCDEFGHJKLMNPQRSTUVWXYZ`.
-    - D3: modo `FULL_AMOUNT`, repasse e estorno estão modelados, mas são Fase B (EVOL-014).
-    - D4: refresh de sessão por cookie HttpOnly (exige API e front no mesmo domínio-pai).
-    - D5: nomes de campos de agendamento seguem SPEC-06/SPEC-09 (`selectedDate`, `selectedTimeSlot`, `selectedPeriod`).
+    **Decisões consolidadas (ADRs da SPEC-10 e SPEC-13)**
+    - ADR 1: Valores monetários trafegam em reais decimais (`number`, sem sufixo `*Cents`), alinhados à SPEC-09.
+    - ADR 2: Sessão web mantém `accessToken` exclusivamente em memória (`expiresIn: 3600`, sem cookie HttpOnly). `refreshToken` e `POST /auth/refresh` aplicam-se apenas a clientes `X-Client-Type: MOBILE`.
+    - ADR 3: Catálogo público (`GET /catalog/offers`) retorna apenas serviços ativos de clínicas com status `APROVADO` (resolve `EVOL-006` no servidor).
+    - ADR 4: `orderId` sequencial legível por ano (`ORD-AAAA-NNNNNN`), gerado atomicamente pelo backend.
+    - ADR 5: Exemplos completos incluídos nos endpoints principais para validação e mock sem estado via Stoplight Prism CLI.
+    - SPEC-13: Upload de fotos via Cloudflare R2 (protocolo S3-compatível / MinIO em dev), aceitando apenas JPEG/JPG, PNG e WebP (validação por magic bytes, sem SVG, máx. 5 MB, máx. 10 fotos/clínica); agenda dinâmica de 30 min com capacidade configurável (`defaultSlotCapacity`/`slotCapacity`, reserva em `SOLICITADO`); geocodificação ViaCEP + Nominatim com cache em PostgreSQL.
+    - EVOL-014 / EVOL-017 / EVOL-019..021: Pix dinâmico real por PSP, cobrança recorrente por gateway do plano R$ 99,00/mês, disparo automático de e-mails, modo `FULL_AMOUNT` com repasse/estorno, relatório trimestral e dashboards multi-clínica pertencem às etapas pós-Fase 1 no Roadmap.
 servers:
   - url: http://localhost:8080/api/v1
     description: Desenvolvimento local
@@ -44,6 +46,8 @@ paths:
       tags: [Auth]
       summary: Cadastro de paciente
       security: []
+      parameters:
+        - { $ref: '#/components/parameters/ClientType' }
       requestBody:
         required: true
         content:
@@ -63,6 +67,8 @@ paths:
       tags: [Auth]
       summary: Credenciamento de clínica (status inicial PENDENTE_APROVACAO_ADMIN)
       security: []
+      parameters:
+        - { $ref: '#/components/parameters/ClientType' }
       requestBody:
         required: true
         content:
@@ -82,6 +88,8 @@ paths:
       tags: [Auth]
       summary: Login de paciente ou clínica
       security: []
+      parameters:
+        - { $ref: '#/components/parameters/ClientType' }
       requestBody:
         required: true
         content:
@@ -100,6 +108,8 @@ paths:
       tags: [Auth]
       summary: Login da administração
       security: []
+      parameters:
+        - { $ref: '#/components/parameters/ClientType' }
       requestBody:
         required: true
         content:
@@ -121,11 +131,25 @@ paths:
   /auth/refresh:
     post:
       tags: [Auth]
-      summary: Renova o access token usando o cookie de refresh
+      summary: Renova o access token usando refreshToken (exclusivo para cliente MOBILE)
+      description: |
+        Na versão web, o `accessToken` vive apenas em memória e não há refresh ativo (ADR 2).
+        Clientes `X-Client-Type: MOBILE` enviam `{ refreshToken }` no corpo com rotação automática.
       security: []
+      parameters:
+        - { $ref: '#/components/parameters/ClientType' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
       responses:
         '200':
-          description: Novo token
+          description: Novo par de tokens
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AuthResponse' }
@@ -152,8 +176,8 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
     put:
       tags: [Patients]
-      summary: Atualiza telefone e convênios do paciente
-      description: 'Perfil: ROLE_USUARIO.'
+      summary: Atualiza e-mail, telefone e convênios do paciente
+      description: 'Perfil: ROLE_USUARIO. CPF, nome completo e data de nascimento permanecem fixos.'
       requestBody:
         required: true
         content:
@@ -161,6 +185,7 @@ paths:
             schema:
               type: object
               properties:
+                email: { type: string, format: email, maxLength: 254 }
                 phone: { type: string }
                 insuranceIds:
                   type: array
@@ -187,12 +212,57 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/OrderPage' }
+              example:
+                page: 0
+                size: 20
+                totalElements: 1
+                totalPages: 1
+                content:
+                  - orderId: ORD-2026-000101
+                    createdAt: '2026-11-18T14:20:00Z'
+                    tokenIssuedAt: '2026-11-18T15:00:00Z'
+                    checkInToken: K7M4P9
+                    orderFee:
+                      id: 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+                      orderId: ORD-2026-000101
+                      patientId: 3d6f9a10-12a4-4f10-8a10-001122334455
+                      feeAmount: 5.0
+                      status: PENDENTE_PAGAMENTO
+                      paymentMethod: null
+                      paidAt: null
+                      waivedReason: null
+                      createdAt: '2026-11-18T14:20:00Z'
+                    appointments:
+                      - id: a1b2c3d4-0001-4000-8000-000000000101
+                        orderId: ORD-2026-000101
+                        patientId: 3d6f9a10-12a4-4f10-8a10-001122334455
+                        patientName: Clauber Bispo Miranda
+                        clinicId: 550e8400-e29b-41d4-a716-446655440001
+                        clinicName: Laboratório Vida & Saúde
+                        examId: srv-hemograma
+                        examName: Hemograma Completo
+                        category: laboratorio
+                        selectedDate: '2026-11-25'
+                        selectedTimeSlot: '08:30'
+                        selectedPeriod: MANHA
+                        paymentType: PARTICULAR
+                        insuranceId: ins-particular
+                        price: 45.5
+                        descriptionPrep: Jejum desejável de 4 horas.
+                        status: CONFIRMADO_CLINICA
+                        cancelledBy: null
+                        cancelReason: null
+                        checkedInAt: null
+                        checkInMethod: null
+                        patientAttendance: null
+                        attendanceDispute: false
+                        createdAt: '2026-11-18T14:20:00Z'
 
   /patients/me/pending-attendance:
     get:
       tags: [Patients]
       summary: Agendamentos passados que aguardam a declaração de comparecimento
-      description: 'Perfil: ROLE_USUARIO. Itens com data passada em CONFIRMADO_CLINICA sem declaração (SPEC-09 §4.4). Usado para exibir o modal e bloquear novos pedidos.'
+      description: 'Perfil: ROLE_USUARIO. Itens com data passada em CONFIRMADO_CLINICA sem declaração (SPEC-09 §4.4).'
       responses:
         '200':
           description: Lista pendente
@@ -202,6 +272,30 @@ paths:
                 type: array
                 items: { $ref: '#/components/schemas/Appointment' }
 
+  /patients/me/pending-fees:
+    get:
+      tags: [Patients]
+      summary: Pedidos com taxa única de R$ 5,00 pendente de pagamento pelo paciente
+      description: 'Perfil: ROLE_USUARIO. Retorna lançamentos `orderFee` com status `PENDENTE_PAGAMENTO` que bloqueiam novos pedidos.'
+      responses:
+        '200':
+          description: Lista de taxas pendentes
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/OrderFee' }
+              example:
+                - id: 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+                  orderId: ORD-2026-000101
+                  patientId: 3d6f9a10-12a4-4f10-8a10-001122334455
+                  feeAmount: 5.0
+                  status: PENDENTE_PAGAMENTO
+                  paymentMethod: null
+                  paidAt: null
+                  waivedReason: null
+                  createdAt: '2026-11-18T14:20:00Z'
+
   /appointments/{appointmentId}/attendance:
     post:
       tags: [Patients]
@@ -210,7 +304,7 @@ paths:
         Perfil: ROLE_USUARIO. Só aceita agendamentos com data passada ainda em CONFIRMADO_CLINICA
         (SPEC-09 §4.4); se a clínica já marcou REALIZADO, retorna 409.
         Se a resposta divergir do estado que a clínica marcar depois,
-        o agendamento recebe `attendanceDispute=true` e o lançamento da taxa vai para `EM_ANALISE`.
+        o agendamento recebe `attendanceDispute=true` para revisão administrativa em `/admin/appointments`.
       parameters:
         - { $ref: '#/components/parameters/AppointmentId' }
       requestBody:
@@ -242,6 +336,22 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Clinic' }
+
+  /clinics/me/subscription/activate:
+    post:
+      tags: [Clinics]
+      summary: Confirma adesão operacional ao plano mensal de R$ 99,00
+      description: |
+        Perfil: ROLE_CLINICA. Modo operacional da Fase 1 (sem gateway recorrente, reservado a EVOL-019).
+        Ativa `subscriptionStatus=ACTIVE_SUBSCRIPTION`, preenche `subscriptionActivatedAt` e, se a clínica estava `SUSPENSO` por `TRIAL_EXPIRED`, restaura `approvalStatus=APROVADO`.
+        Retorna 409 se a clínica ainda estiver `PENDENTE_APROVACAO_ADMIN`, `REJEITADO` ou já possuir assinatura ativa.
+      responses:
+        '200':
+          description: Assinatura ativada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Clinic' }
+        '409': { $ref: '#/components/responses/Conflict' }
 
   /clinics/me/profile:
     get:
@@ -275,7 +385,10 @@ paths:
     post:
       tags: [Clinics]
       summary: Envia uma foto da clínica
-      description: 'Perfil: ROLE_CLINICA. Armazenamento em serviço de arquivos (não base64 no banco).'
+      description: |
+        Perfil: ROLE_CLINICA. Armazenamento em Object Storage S3-compatível (Cloudflare R2 em produção; MinIO em dev), nunca binário ou base64 no PostgreSQL.
+        Validação obrigatória no servidor: aceita exclusivamente imagens **JPEG/JPG** (`image/jpeg`), **PNG** (`image/png`) e **WebP** (`image/webp`) verificadas por assinatura binária (*magic bytes*) com remoção de metadados EXIF.
+        **SVG é estritamente proibido** (prevenção XSS). Limite máximo de **5 MB** por arquivo e até **10 fotos** por clínica (retorna 422 `VALIDATION_ERROR` se excedido).
       requestBody:
         required: true
         content:
@@ -284,8 +397,8 @@ paths:
               type: object
               required: [file]
               properties:
-                file: { type: string, format: binary }
-                title: { type: string }
+                file: { type: string, format: binary, description: 'Imagem JPEG, PNG ou WebP até 5 MB' }
+                title: { type: string, maxLength: 120 }
                 category: { $ref: '#/components/schemas/PhotoCategory' }
       responses:
         '201':
@@ -442,8 +555,8 @@ paths:
         - { name: q, in: query, schema: { type: string }, description: 'Nome, código TUSS ou preparo' }
         - { name: category, in: query, schema: { $ref: '#/components/schemas/ServiceCategory' } }
         - { name: insuranceId, in: query, schema: { type: string } }
-        - { name: minPriceCents, in: query, schema: { type: integer, minimum: 0 } }
-        - { name: maxPriceCents, in: query, schema: { type: integer, minimum: 0 } }
+        - { name: minPrice, in: query, schema: { type: number, format: double, minimum: 0, multipleOf: 0.01 } }
+        - { name: maxPrice, in: query, schema: { type: number, format: double, minimum: 0, multipleOf: 0.01 } }
         - { name: period, in: query, schema: { $ref: '#/components/schemas/Period' } }
         - { name: lat, in: query, schema: { type: number, format: double } }
         - { name: lng, in: query, schema: { type: number, format: double } }
@@ -455,14 +568,42 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/OfferPage' }
+              example:
+                page: 0
+                size: 20
+                totalElements: 1
+                totalPages: 1
+                content:
+                  - offerId: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+                    examName: Ecocardiograma Transtorácico
+                    category: cardiologia
+                    tussCode: '40304361'
+                    price: 180.75
+                    insuranceIds: [ins-unimed, ins-bradesco, ins-particular]
+                    descriptionPrep: Não exige jejum. Trazer exames cardiológicos anteriores.
+                    durationMinutes: 30
+                    distanceKm: 2.4
+                    clinic:
+                      id: 550e8400-e29b-41d4-a716-446655440001
+                      tradeName: Cardiocentro Lauro
+                      neighborhood: Vilas do Atlântico
+                      address: Av. Praia de Itapuã, 420
+                      rating: 4.9
+                      latitude: -12.8891
+                      longitude: -38.3012
 
   /clinics/{clinicId}/availability:
     get:
       tags: [Catalog]
       summary: Datas e horários disponíveis da clínica
+      description: |
+        Gera slots dinâmicos de 30 minutos a partir de `operatingDays` ativos da clínica (fuso `America/Bahia`).
+        Cada vaga é reservada a partir do status `SOLICITADO` e liberada apenas em `CANCELADO`.
+        Um slot permanece disponível enquanto o total de agendamentos ativos for menor que a capacidade efetiva (`service.slotCapacity` quando informado `serviceId`, ou `clinic.defaultSlotCapacity`).
       security: []
       parameters:
         - { name: clinicId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: serviceId, in: query, required: false, schema: { type: string, format: uuid }, description: 'Opcional; aplica slotCapacity específico do serviço se configurado' }
         - { name: from, in: query, schema: { type: string, format: date } }
         - { name: days, in: query, schema: { type: integer, minimum: 1, maximum: 60, default: 30 } }
         - { name: period, in: query, schema: { $ref: '#/components/schemas/Period' } }
@@ -479,10 +620,12 @@ paths:
   /locations/search:
     get:
       tags: [Catalog]
-      summary: Busca de localização para a vitrine (EVOL-002)
+      summary: Busca de localização para a vitrine (EVOL-002 / SPEC-13)
+      description: |
+        Consulta primeiro a tabela local curada no PostgreSQL (bairros da RMS) e, para CEPs ou endereços novos, resolve via ViaCEP + Nominatim (OpenStreetMap) com cache persistido no PostgreSQL (`geocode_cache`).
       security: []
       parameters:
-        - { name: q, in: query, required: true, schema: { type: string } }
+        - { name: q, in: query, required: true, schema: { type: string, minLength: 2, maxLength: 160 } }
       responses:
         '200':
           description: Locais encontrados
@@ -514,9 +657,10 @@ paths:
       tags: [Orders]
       summary: Cria um pedido com vários agendamentos
       description: |
-        Perfil: ROLE_USUARIO. Todos os itens nascem `SOLICITADO`. Preço, nome do exame e clínica
-        vêm da oferta no servidor; o cliente nunca os envia.
-        Bloqueia com 409 `ATTENDANCE_PENDING` se houver agendamento passado sem declaração de comparecimento.
+        Perfil: ROLE_USUARIO. Todos os itens nascem `SOLICITADO` e a `orderFee` única do pedido nasce `AGUARDANDO_CONFIRMACAO`.
+        Preço, nome do exame e clínica vêm da oferta no servidor; o cliente nunca os envia.
+        Bloqueia com 409 `FEE_PAYMENT_PENDING` se houver pedido anterior com taxa de R$ 5,00 em `PENDENTE_PAGAMENTO`
+        ou com 409 `ATTENDANCE_PENDING` quando aplicável.
       parameters:
         - { name: Idempotency-Key, in: header, required: true, schema: { type: string, maxLength: 80 } }
       requestBody:
@@ -530,8 +674,74 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Order' }
+              example:
+                orderId: ORD-2026-000107
+                createdAt: '2026-11-19T13:10:00Z'
+                tokenIssuedAt: null
+                checkInToken: null
+                orderFee:
+                  id: 2c5ea4c0-4067-11e9-8b2d-1b9d6bcdbbfd
+                  orderId: ORD-2026-000107
+                  patientId: 3d6f9a10-12a4-4f10-8a10-001122334455
+                  feeAmount: 5.0
+                  status: AGUARDANDO_CONFIRMACAO
+                  paymentMethod: null
+                  paidAt: null
+                  waivedReason: null
+                  createdAt: '2026-11-19T13:10:00Z'
+                appointments:
+                  - id: a1b2c3d4-0002-4000-8000-000000000107
+                    orderId: ORD-2026-000107
+                    patientId: 3d6f9a10-12a4-4f10-8a10-001122334455
+                    patientName: Clauber Bispo Miranda
+                    clinicId: 550e8400-e29b-41d4-a716-446655440001
+                    clinicName: Cardiocentro Lauro
+                    examId: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+                    examName: Ecocardiograma Transtorácico
+                    category: cardiologia
+                    selectedDate: '2026-11-26'
+                    selectedTimeSlot: '09:00'
+                    selectedPeriod: MANHA
+                    paymentType: PARTICULAR
+                    insuranceId: ins-particular
+                    price: 180.75
+                    descriptionPrep: Não exige jejum. Trazer exames cardiológicos anteriores.
+                    status: SOLICITADO
+                    cancelledBy: null
+                    cancelReason: null
+                    checkedInAt: null
+                    checkInMethod: null
+                    patientAttendance: null
+                    attendanceDispute: false
+                    createdAt: '2026-11-19T13:10:00Z'
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /orders/{orderId}/fee/pay:
+    post:
+      tags: [Orders]
+      summary: Registra o pagamento à vista (PIX) da taxa única de R$ 5,00 do pedido pelo paciente
+      description: |
+        Perfil: ROLE_USUARIO. Disponível após a confirmação da clínica (`orderFee.status = PENDENTE_PAGAMENTO`).
+        Quita a taxa única de R$ 5,00 por `orderId` e libera o paciente para novos pedidos.
+      parameters:
+        - { name: orderId, in: path, required: true, schema: { type: string, pattern: '^ORD-\d{4}-\d{6}$' } }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                paymentMethod: { type: string, enum: [PIX], default: PIX }
+      responses:
+        '200':
+          description: Taxa quitada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OrderFee' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
 
   /clinics/me/appointments:
     get:
@@ -550,6 +760,37 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AppointmentPage' }
+              example:
+                page: 0
+                size: 20
+                totalElements: 1
+                totalPages: 1
+                content:
+                  - id: a1b2c3d4-0001-4000-8000-000000000101
+                    orderId: ORD-2026-000101
+                    patientId: 3d6f9a10-12a4-4f10-8a10-001122334455
+                    patientName: Clauber Bispo Miranda
+                    patientPhone: (71) 98155-0734
+                    clinicId: 550e8400-e29b-41d4-a716-446655440001
+                    clinicName: Laboratório Vida & Saúde
+                    examId: srv-hemograma
+                    examName: Hemograma Completo
+                    category: laboratorio
+                    selectedDate: '2026-11-25'
+                    selectedTimeSlot: '08:30'
+                    selectedPeriod: MANHA
+                    paymentType: PARTICULAR
+                    insuranceId: ins-particular
+                    price: 45.5
+                    descriptionPrep: Jejum desejável de 4 horas.
+                    status: CONFIRMADO_CLINICA
+                    cancelledBy: null
+                    cancelReason: null
+                    checkedInAt: null
+                    checkInMethod: null
+                    patientAttendance: null
+                    attendanceDispute: false
+                    createdAt: '2026-11-18T14:20:00Z'
 
   /appointments/{appointmentId}/transitions:
     post:
@@ -558,8 +799,8 @@ paths:
       description: |
         Perfil: ROLE_CLINICA (CONFIRM, MARK_DONE, MARK_NO_SHOW, CANCEL), ROLE_USUARIO (CANCEL) ou ROLE_ADMIN (CANCEL).
         `MARK_DONE` exige check-in prévio. Transição inválida retorna 409 `INVALID_TRANSITION`.
-        Ao atingir um estado cobrável da clínica, cria o lançamento da taxa.
-        A primeira confirmação de um pedido gera o token (um por `orderId`).
+        A primeira confirmação de um pedido gera o token único do pedido (`orderId`) e move a `orderFee` do paciente para `PENDENTE_PAGAMENTO`.
+        Se todos os itens do `orderId` forem cancelados sem confirmação/realização prévia, a `orderFee` passa para `ISENTA`.
       parameters:
         - { $ref: '#/components/parameters/AppointmentId' }
       requestBody:
@@ -583,7 +824,7 @@ paths:
       summary: Check-in por token na recepção
       description: |
         Perfil: ROLE_CLINICA. Lista e marca apenas os itens **desta clínica** no pedido.
-        Itens em `NAO_COMPARECEU` podem voltar a `REALIZADO` se o token for apresentado (prova de guichê): `checkInMethod=MANUAL_REVERSAL`, `attendanceDispute=true` e lançamento da taxa em `EM_ANALISE`.
+        Itens em `NAO_COMPARECEU` podem voltar a `REALIZADO` se o token for apresentado (prova de guichê): `checkInMethod=MANUAL_REVERSAL` e `attendanceDispute=true` para revisão administrativa.
         Token inexistente ou sem itens desta clínica retorna sempre o mesmo 404 `TOKEN_NOT_FOUND`.
         Bloqueia após 5 falhas consecutivas (423 `TOKEN_LOCKED`).
       requestBody:
@@ -633,54 +874,13 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
 
-  /clinics/me/billing-config:
-    get:
-      tags: [Billing]
-      summary: Configuração de cobrança da própria clínica (somente leitura)
-      description: 'Perfil: ROLE_CLINICA.'
-      responses:
-        '200':
-          description: Configuração
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ClinicBillingConfig' }
-
-  /clinics/me/fee-ledger:
-    get:
-      tags: [Billing]
-      summary: Lançamentos da taxa da clínica
-      description: 'Perfil: ROLE_CLINICA.'
-      parameters:
-        - { name: status, in: query, schema: { $ref: '#/components/schemas/FeeStatus' } }
-        - { name: weekKey, in: query, schema: { $ref: '#/components/schemas/WeekKey' } }
-        - { $ref: '#/components/parameters/Page' }
-        - { $ref: '#/components/parameters/Size' }
-      responses:
-        '200':
-          description: Página de lançamentos
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/FeeLedgerPage' }
-
-  /clinics/me/weekly-bills:
-    get:
-      tags: [Billing]
-      summary: Boletos semanais (weeklyBill) da clínica
-      description: 'Perfil: ROLE_CLINICA.'
-      responses:
-        '200':
-          description: Boletos
-          content:
-            application/json:
-              schema:
-                type: array
-                items: { $ref: '#/components/schemas/WeeklyBill' }
-
   /admin/clinics:
     get:
       tags: [Admin]
       summary: Clínicas cadastradas
-      description: 'Perfil: ROLE_ADMIN.'
+      description: |
+        Perfil: ROLE_ADMIN.
+        Nota de evolução (EVOL-019, EVOL-020, EVOL-021): ordenação por vencimento de trial, disparo de e-mails de proposta/métricas trimestrais e dashboards individuais/consolidados de clínicas pertencem à etapa pós-backend.
       parameters:
         - { name: status, in: query, schema: { $ref: '#/components/schemas/ApprovalStatus' } }
         - { $ref: '#/components/parameters/Page' }
@@ -696,7 +896,7 @@ paths:
     patch:
       tags: [Admin]
       summary: Aprova, suspende ou rejeita uma clínica
-      description: 'Perfil: ROLE_ADMIN. Somente `APROVADO` publica serviços na vitrine.'
+      description: 'Perfil: ROLE_ADMIN. Somente `APROVADO` publica serviços na vitrine e inicia automaticamente o período de teste gratuito de 90 dias (`trialStartedAt`/`trialEndsAt`). Expirado o prazo sem adesão a R$ 99,00/mês, o status transita para `SUSPENSO`.'
       parameters:
         - { $ref: '#/components/parameters/ClinicId' }
       requestBody:
@@ -717,83 +917,86 @@ paths:
               schema: { $ref: '#/components/schemas/Clinic' }
         '404': { $ref: '#/components/responses/NotFound' }
 
-  /admin/clinics/{clinicId}/billing-config:
-    get:
+  /admin/clinics/{clinicId}/subscription:
+    patch:
       tags: [Admin]
-      summary: Configuração de cobrança da clínica
-      description: 'Perfil: ROLE_ADMIN.'
-      parameters:
-        - { $ref: '#/components/parameters/ClinicId' }
-      responses:
-        '200':
-          description: Configuração
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ClinicBillingConfig' }
-    put:
-      tags: [Admin]
-      summary: Altera a configuração de cobrança da clínica
+      summary: Atualiza manualmente o estado da assinatura mensal (R$ 99,00) de uma clínica
       description: |
-        Perfil: ROLE_ADMIN. `billableStatuses` só aceita REALIZADO e NAO_COMPARECEU
-        (422 `INVALID_BILLABLE_STATUS` caso contrário).
+        Perfil: ROLE_ADMIN. Permite regularizar manualmente uma clínica (`ACTIVE_SUBSCRIPTION`), restaurando clínicas suspensas por fim do período gratuito (`TRIAL_EXPIRED` -> `APROVADO`), ou ajustar estado da assinatura.
       parameters:
         - { $ref: '#/components/parameters/ClinicId' }
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/ClinicBillingConfigInput' }
+            schema:
+              type: object
+              required: [subscriptionStatus]
+              properties:
+                subscriptionStatus: { $ref: '#/components/schemas/ClinicSubscriptionStatus' }
+                reason: { type: string, maxLength: 300 }
       responses:
         '200':
-          description: Configuração atualizada
+          description: Assinatura atualizada
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ClinicBillingConfig' }
-        '422': { $ref: '#/components/responses/Unprocessable' }
+              schema: { $ref: '#/components/schemas/Clinic' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
 
-  /admin/fee-ledger:
+  /admin/order-fees:
     get:
-      tags: [Admin]
-      summary: Lançamentos da taxa de todas as clínicas
+      tags: [Billing, Admin]
+      summary: Consulta taxas únicas de R$ 5,00 por pedido (orderFee)
       description: 'Perfil: ROLE_ADMIN.'
       parameters:
-        - { name: clinicId, in: query, schema: { type: string, format: uuid } }
-        - { name: weekKey, in: query, schema: { $ref: '#/components/schemas/WeekKey' } }
-        - { name: status, in: query, schema: { $ref: '#/components/schemas/FeeStatus' } }
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/OrderFeeStatus' } }
         - { $ref: '#/components/parameters/Page' }
         - { $ref: '#/components/parameters/Size' }
       responses:
         '200':
-          description: Página de lançamentos
+          description: Página de taxas de pedidos
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/FeeLedgerPage' }
+              schema: { $ref: '#/components/schemas/OrderFeePage' }
+              example:
+                page: 0
+                size: 20
+                totalElements: 1
+                totalPages: 1
+                content:
+                  - id: 9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d
+                    orderId: ORD-2026-000101
+                    patientId: 3d6f9a10-12a4-4f10-8a10-001122334455
+                    feeAmount: 5.0
+                    status: PAGA
+                    paymentMethod: PIX
+                    paidAt: '2026-11-18T15:10:00Z'
+                    waivedReason: null
+                    createdAt: '2026-11-18T14:20:00Z'
 
-  /admin/fee-ledger/{ledgerId}/transitions:
+  /admin/order-fees/{orderId}/waive:
     post:
-      tags: [Admin]
-      summary: Aplica uma transição na máquina do lançamento da taxa
-      description: |
-        Perfil: ROLE_ADMIN (SPEC-09 §4.2, modo FEE_ONLY).
-        - `RESOLVE_CHARGE`: EM_ANALISE para DEVIDA (divergência decidida a favor da cobrança)
-        - `WAIVE`: EM_ANALISE ou DEVIDA para ISENTA
-        - `GENERATE_CHARGE`: DEVIDA para COBRANCA_GERADA, forma INDIVIDUAL (um boleto para este lançamento)
-        - `MARK_PAID`: COBRANCA_GERADA ou EM_ATRASO para PAGA
-        - `MARK_OVERDUE`: COBRANCA_GERADA para EM_ATRASO (prazo vencido; na Fase B vira job automático)
-        Transição inválida retorna 409 `INVALID_TRANSITION`.
+      tags: [Billing, Admin]
+      summary: Isenta excepcionalmente a taxa de um pedido
+      description: 'Perfil: ROLE_ADMIN. Move `orderFee.status` de `PENDENTE_PAGAMENTO` para `ISENTA`.'
       parameters:
-        - { name: ledgerId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: orderId, in: path, required: true, schema: { type: string, pattern: '^ORD-\d{4}-\d{6}$' } }
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/LedgerTransitionRequest' }
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, minLength: 5, maxLength: 300 }
       responses:
         '200':
-          description: Lançamento atualizado
+          description: Taxa isenta
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/FeeLedgerEntry' }
+              schema: { $ref: '#/components/schemas/OrderFee' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
 
@@ -815,91 +1018,6 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/AppointmentPage' }
 
-  /admin/weekly-bills/close:
-    post:
-      tags: [Admin]
-      summary: Fecha a semana e emite um boleto mock por clínica
-      description: |
-        Perfil: ROLE_ADMIN. Para clínicas com `billingGrouping=ACCUMULATED`.
-        Agrupa lançamentos `DEVIDA` do `weekKey` por clínica
-        e move para `COBRANCA_GERADA`. Fase A: boleto simulado (sem gateway).
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [weekKey]
-              properties:
-                weekKey: { $ref: '#/components/schemas/WeekKey' }
-      responses:
-        '201':
-          description: Boletos emitidos
-          content:
-            application/json:
-              schema:
-                type: array
-                items: { $ref: '#/components/schemas/WeeklyBill' }
-        '409': { $ref: '#/components/responses/Conflict' }
-
-  /admin/weekly-bills:
-    get:
-      tags: [Admin]
-      summary: Boletos emitidos
-      description: 'Perfil: ROLE_ADMIN.'
-      parameters:
-        - { name: weekKey, in: query, schema: { $ref: '#/components/schemas/WeekKey' } }
-        - { name: status, in: query, schema: { $ref: '#/components/schemas/WeeklyBillStatus' } }
-      responses:
-        '200':
-          description: Boletos
-          content:
-            application/json:
-              schema:
-                type: array
-                items: { $ref: '#/components/schemas/WeeklyBill' }
-
-  /admin/weekly-bills/{weeklyBillId}/settle:
-    post:
-      tags: [Admin]
-      summary: Registra a liquidação do boleto (Fase A, manual)
-      description: 'Perfil: ROLE_ADMIN. Move boleto para `LIQUIDADO` e lançamentos para `PAGA`.'
-      parameters:
-        - { $ref: '#/components/parameters/WeeklyBillId' }
-      responses:
-        '200':
-          description: Boleto liquidado
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/WeeklyBill' }
-        '409': { $ref: '#/components/responses/Conflict' }
-
-  /admin/weekly-bills/{weeklyBillId}/refund:
-    post:
-      tags: [Admin]
-      summary: Estorna boleto ou lançamento (altera só a cobrança)
-      description: |
-        Perfil: ROLE_ADMIN. Permitido apenas em boleto semanal `EMITIDO` ou `LIQUIDADO`.
-        O agendamento permanece `REALIZADO` ou `NAO_COMPARECEU`.
-      parameters:
-        - { $ref: '#/components/parameters/WeeklyBillId' }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [reason]
-              properties:
-                reason: { type: string, minLength: 5, maxLength: 300 }
-      responses:
-        '200':
-          description: Boleto estornado
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/WeeklyBill' }
-        '409': { $ref: '#/components/responses/Conflict' }
-
 components:
   securitySchemes:
     bearerAuth:
@@ -911,11 +1029,16 @@ components:
   parameters:
     Page: { name: page, in: query, schema: { type: integer, minimum: 0, default: 0 } }
     Size: { name: size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+    ClientType:
+      name: X-Client-Type
+      in: header
+      required: false
+      description: Identifica cliente WEB ou MOBILE (ADR 2). `refreshToken` é retornado apenas para MOBILE.
+      schema: { type: string, enum: [WEB, MOBILE], default: WEB }
     AppointmentId: { name: appointmentId, in: path, required: true, schema: { type: string, format: uuid } }
     ClinicId: { name: clinicId, in: path, required: true, schema: { type: string, format: uuid } }
     ServiceId: { name: serviceId, in: path, required: true, schema: { type: string, format: uuid } }
     PhotoId: { name: photoId, in: path, required: true, schema: { type: string, format: uuid } }
-    WeeklyBillId: { name: weeklyBillId, in: path, required: true, schema: { type: string, format: uuid } }
 
   responses:
     Unauthorized:
@@ -957,16 +1080,18 @@ components:
           type: string
           description: Código estável para o front tratar a mensagem
           enum:
+            - UNAUTHENTICATED
+            - FORBIDDEN_ROLE
             - VALIDATION_ERROR
             - INVALID_TRANSITION
             - SLOT_UNAVAILABLE
             - OFFER_UNAVAILABLE
             - ATTENDANCE_PENDING
+            - FEE_PAYMENT_PENDING
             - TOKEN_NOT_FOUND
             - TOKEN_ALREADY_USED
             - TOKEN_LOCKED
             - CHECK_IN_REQUIRED
-            - INVALID_BILLABLE_STATUS
             - DUPLICATE_REQUEST
             - ALREADY_EXISTS
         itemIndex:
@@ -993,6 +1118,7 @@ components:
     # ---------- Enums ----------
     Role: { type: string, enum: [ROLE_USUARIO, ROLE_CLINICA, ROLE_ADMIN] }
     ApprovalStatus: { type: string, enum: [PENDENTE_APROVACAO_ADMIN, APROVADO, SUSPENSO, REJEITADO] }
+    ClinicSubscriptionStatus: { type: string, enum: [TRIAL, ACTIVE_SUBSCRIPTION, TRIAL_EXPIRED] }
     ServiceCategory: { type: string, enum: [laboratorio, imagem, cardiologia, consultas, outros] }
     Period: { type: string, enum: [MANHA, TARDE, NOITE] }
     PaymentType: { type: string, enum: [PARTICULAR, CONVENIO] }
@@ -1004,19 +1130,11 @@ components:
     TransitionAction:
       type: string
       enum: [CONFIRM, MARK_DONE, MARK_NO_SHOW, CANCEL]
-    BillableStatus: { type: string, enum: [REALIZADO, NAO_COMPARECEU] }
     SettlementMode:
       type: string
-      enum: [FEE_ONLY, FULL_AMOUNT]
-      description: FULL_AMOUNT é Fase B (EVOL-009)
-    BillingGrouping: { type: string, enum: [INDIVIDUAL, ACCUMULATED] }
-    FeeStatus: { type: string, enum: [EM_ANALISE, DEVIDA, COBRANCA_GERADA, PAGA, EM_ATRASO, ISENTA] }
-    WeeklyBillStatus: { type: string, enum: [EMITIDO, LIQUIDADO, ESTORNADO] }
-    WeekKey:
-      type: string
-      pattern: '^\d{4}-W\d{2}$'
-      example: 2026-W45
-      description: Semana ISO-8601 (segunda a domingo) em America/Bahia
+      enum: [PATIENT_FEE_ONLY, FULL_AMOUNT]
+      description: PATIENT_FEE_ONLY é o fluxo padrão (R$ 5,00 pago pelo paciente por orderId). FULL_AMOUNT é Fase B (EVOL-017).
+    OrderFeeStatus: { type: string, enum: [AGUARDANDO_CONFIRMACAO, PENDENTE_PAGAMENTO, PAGA, ISENTA] }
 
     # ---------- Auth ----------
     LoginRequest:
@@ -1031,7 +1149,11 @@ components:
       required: [accessToken, expiresIn, user]
       properties:
         accessToken: { type: string }
-        expiresIn: { type: integer, example: 900 }
+        expiresIn: { type: integer, example: 3600 }
+        refreshToken:
+          type: string
+          nullable: true
+          description: Preenchido apenas quando X-Client-Type=MOBILE; null na web (ADR 2).
         user:
           type: object
           required: [id, role, name]
@@ -1064,7 +1186,7 @@ components:
         email: { type: string, format: email, maxLength: 254 }
         password: { type: string, format: password, minLength: 8 }
         managerName: { type: string }
-        phone: { type: string }
+        phone: { type: string, description: 'Telefone / WhatsApp direto do responsável pelo credenciamento (10 ou 11 dígitos após DDD)' }
         referralCode: { type: string, minLength: 4, maxLength: 30 }
         acceptTerms: { type: boolean }
 
@@ -1088,9 +1210,14 @@ components:
         tradeName: { type: string }
         cnpj: { type: string }
         email: { type: string, format: email }
-        phone: { type: string }
+        phone: { type: string, description: 'Telefone / WhatsApp direto do responsável pelo cadastro' }
         managerName: { type: string }
         approvalStatus: { $ref: '#/components/schemas/ApprovalStatus' }
+        subscriptionStatus: { $ref: '#/components/schemas/ClinicSubscriptionStatus' }
+        trialStartedAt: { type: string, format: date-time, nullable: true }
+        trialEndsAt: { type: string, format: date-time, nullable: true }
+        subscriptionActivatedAt: { type: string, format: date-time, nullable: true }
+        monthlyPlanPrice: { type: number, format: double, minimum: 0, multipleOf: 0.01, example: 99.0, description: 'Plano mensal de R$ 99,00 após os 90 dias gratuitos' }
         statusUpdatedAt: { type: string, format: date-time }
         registeredAt: { type: string, format: date-time }
     ClinicPage:
@@ -1132,6 +1259,7 @@ components:
         zipCode: { type: string }
         referencePoint: { type: string }
         description: { type: string }
+        defaultSlotCapacity: { type: integer, minimum: 1, default: 1, description: 'Capacidade padrão de atendimentos simultâneos por slot de 30 min' }
         operatingDays: { type: array, items: { $ref: '#/components/schemas/OperatingDay' } }
     ClinicProfile:
       allOf:
@@ -1159,24 +1287,25 @@ components:
         name: { type: string }
         category: { $ref: '#/components/schemas/ServiceCategory' }
         tussCode: { type: string, nullable: true }
-        suggestedPriceCents: { type: integer }
+        suggestedPrice: { type: number, format: double, minimum: 0, multipleOf: 0.01, example: 140.0 }
         suggestedInsuranceIds: { type: array, items: { type: string } }
         suggestedPrep: { type: string }
         suggestedDurationMinutes: { type: integer }
     ClinicServiceInput:
       type: object
-      required: [name, category, priceCents, descriptionPrep, insuranceIds]
+      required: [name, category, price, descriptionPrep, insuranceIds]
       properties:
         name: { type: string, minLength: 3 }
         category: { $ref: '#/components/schemas/ServiceCategory' }
         tussCode: { type: string, pattern: '^\d{6,8}$', nullable: true }
-        priceCents: { type: integer, minimum: 1 }
+        price: { type: number, format: double, minimum: 0.01, multipleOf: 0.01, example: 180.75 }
         descriptionPrep: { type: string, minLength: 10 }
         durationMinutes: { type: integer, minimum: 5 }
         insuranceIds: { type: array, minItems: 1, items: { type: string } }
         insurancePricingNotes: { type: string }
         commercialNotes: { type: string }
         imageUrl: { type: string, format: uri, nullable: true }
+        slotCapacity: { type: integer, minimum: 1, nullable: true, description: 'Opcional; sobrescreve defaultSlotCapacity da clínica para este serviço' }
         active: { type: boolean, default: true }
     ClinicService:
       allOf:
@@ -1193,7 +1322,7 @@ components:
         examName: { type: string }
         category: { $ref: '#/components/schemas/ServiceCategory' }
         tussCode: { type: string, nullable: true }
-        priceCents: { type: integer }
+        price: { type: number, format: double, minimum: 0, multipleOf: 0.01, example: 180.75 }
         insuranceIds: { type: array, items: { type: string } }
         descriptionPrep: { type: string }
         durationMinutes: { type: integer }
@@ -1268,7 +1397,7 @@ components:
       type: object
       properties:
         id: { type: string, format: uuid }
-        orderId: { type: string, example: ORD-2026-000101 }
+        orderId: { type: string, pattern: '^ORD-\d{4}-\d{6}$', example: ORD-2026-000101 }
         patientId: { type: string, format: uuid }
         patientName: { type: string }
         patientPhone: { type: string, description: 'Visível somente para a clínica do agendamento' }
@@ -1282,14 +1411,14 @@ components:
         selectedPeriod: { $ref: '#/components/schemas/Period' }
         paymentType: { $ref: '#/components/schemas/PaymentType' }
         insuranceId: { type: string, nullable: true }
-        priceCents: { type: integer, description: '0 quando CONVENIO' }
+        price: { type: number, format: double, minimum: 0, multipleOf: 0.01, example: 180.75, description: '0 quando CONVENIO' }
         descriptionPrep: { type: string }
         status: { $ref: '#/components/schemas/AppointmentStatus' }
-        cancelledBy: { type: string, enum: [PACIENTE, CLINICA, ADMIN], nullable: true }
+        cancelledBy: { type: string, enum: [PACIENTE, CLINICA, ADMIN, null], nullable: true }
         cancelReason: { type: string, nullable: true }
         checkedInAt: { type: string, format: date-time, nullable: true }
-        checkInMethod: { type: string, enum: [TOKEN, MANUAL, MANUAL_REVERSAL], nullable: true }
-        patientAttendance: { allOf: [{ $ref: '#/components/schemas/PatientAttendance' }], nullable: true }
+        checkInMethod: { type: string, enum: [TOKEN, MANUAL, MANUAL_REVERSAL, null], nullable: true }
+        patientAttendance: { type: string, enum: [ATTENDED, NOT_ATTENDED, null], nullable: true }
         attendanceDispute: { type: boolean }
         createdAt: { type: string, format: date-time }
     AppointmentPage:
@@ -1301,7 +1430,7 @@ components:
     Order:
       type: object
       properties:
-        orderId: { type: string }
+        orderId: { type: string, pattern: '^ORD-\d{4}-\d{6}$', example: ORD-2026-000101 }
         createdAt: { type: string, format: date-time }
         tokenIssuedAt: { type: string, format: date-time, nullable: true }
         checkInToken:
@@ -1310,6 +1439,8 @@ components:
           description: |
             Gerado na primeira confirmação de qualquer item do pedido. Retornado apenas ao
             paciente dono do pedido; nunca em respostas de clínica ou admin.
+        orderFee:
+          $ref: '#/components/schemas/OrderFee'
         appointments:
           type: array
           items: { $ref: '#/components/schemas/Appointment' }
@@ -1325,11 +1456,11 @@ components:
       properties:
         action: { $ref: '#/components/schemas/TransitionAction' }
         reason: { type: string, maxLength: 300, description: 'Obrigatório em CANCEL' }
-        chargedAmountCents: { type: integer, minimum: 0, description: 'Opcional em MARK_DONE' }
+        chargedAmount: { type: number, format: double, minimum: 0, multipleOf: 0.01, description: 'Opcional em MARK_DONE' }
     CheckInResult:
       type: object
       properties:
-        orderId: { type: string }
+        orderId: { type: string, pattern: '^ORD-\d{4}-\d{6}$', example: ORD-2026-000101 }
         patientName: { type: string }
         appointments:
           type: array
@@ -1337,67 +1468,21 @@ components:
           items: { $ref: '#/components/schemas/Appointment' }
 
     # ---------- Cobrança ----------
-    ClinicBillingConfigInput:
-      type: object
-      required: [settlementMode, billableStatuses, billingGrouping]
-      properties:
-        settlementMode: { $ref: '#/components/schemas/SettlementMode' }
-        billableStatuses:
-          type: array
-          minItems: 1
-          items: { $ref: '#/components/schemas/BillableStatus' }
-          default: [REALIZADO]
-        billingGrouping: { $ref: '#/components/schemas/BillingGrouping' }
-        feeOnInsuranceOrders:
-          type: boolean
-          default: true
-          description: Padrão a confirmar (pendência da SPEC-09)
-    ClinicBillingConfig:
-      allOf:
-        - type: object
-          properties:
-            clinicId: { type: string, format: uuid }
-        - $ref: '#/components/schemas/ClinicBillingConfigInput'
-    FeeLedgerEntry:
+    OrderFee:
       type: object
       properties:
         id: { type: string, format: uuid }
-        orderId: { type: string }
-        clinicId: { type: string, format: uuid }
-        appointmentIds: { type: array, items: { type: string, format: uuid } }
-        weekKey: { $ref: '#/components/schemas/WeekKey' }
-        feeAmountCents: { type: integer, example: 500 }
-        servicesAmountCents: { type: integer }
-        totalAmountCents: { type: integer }
-        settlementMode: { $ref: '#/components/schemas/SettlementMode' }
-        status: { $ref: '#/components/schemas/FeeStatus' }
-        triggerStatus: { $ref: '#/components/schemas/BillableStatus' }
-        weeklyBillId: { type: string, format: uuid, nullable: true }
-        attendanceDispute: { type: boolean }
+        orderId: { type: string, pattern: '^ORD-\d{4}-\d{6}$', example: ORD-2026-000101 }
+        patientId: { type: string, format: uuid }
+        feeAmount: { type: number, format: double, minimum: 0, multipleOf: 0.01, example: 5.0, description: 'Taxa única fixa de R$ 5,00 por orderId paga pelo paciente' }
+        status: { $ref: '#/components/schemas/OrderFeeStatus' }
+        paymentMethod: { type: string, enum: [PIX, null], nullable: true }
+        paidAt: { type: string, format: date-time, nullable: true }
+        waivedReason: { type: string, nullable: true }
         createdAt: { type: string, format: date-time }
-    LedgerTransitionRequest:
-      type: object
-      required: [action]
-      properties:
-        action: { type: string, enum: [RESOLVE_CHARGE, WAIVE, GENERATE_CHARGE, MARK_PAID, MARK_OVERDUE] }
-        note: { type: string, maxLength: 300 }
-    FeeLedgerPage:
+    OrderFeePage:
       allOf:
         - $ref: '#/components/schemas/PageInfo'
         - type: object
           properties:
-            content: { type: array, items: { $ref: '#/components/schemas/FeeLedgerEntry' } }
-    WeeklyBill:
-      type: object
-      properties:
-        id: { type: string, format: uuid }
-        clinicId: { type: string, format: uuid }
-        weekKey: { $ref: '#/components/schemas/WeekKey' }
-        feeLedgerIds: { type: array, items: { type: string, format: uuid } }
-        totalAmountCents: { type: integer }
-        method: { type: string, enum: [BOLETO, PIX], default: BOLETO, description: 'PIX previsto na Fase B (EVOL-014)' }
-        digitableLine: { type: string, nullable: true, description: 'Valor simulado na Fase A' }
-        txid: { type: string, nullable: true, description: 'Fase B: identificador da cobrança Pix (26 a 35 caracteres)' }
-        dueDate: { type: string, format: date }
-        status: { $ref: '#/components/schemas/WeeklyBillStatus' }
-        issuedAt: { type: string, format: date-time }
+            content: { type: array, items: { $ref: '#/components/schemas/OrderFee' } }

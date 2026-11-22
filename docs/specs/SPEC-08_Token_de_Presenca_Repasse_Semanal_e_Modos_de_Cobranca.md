@@ -1,4 +1,4 @@
-﻿# SPEC-08: Token de Presença, Repasse Semanal e Modos de Cobrança
+# SPEC-08: Token de Presença, Repasse Semanal e Modos de Cobrança
 
 - **Status**: SUBSTITUÍDA — ver `SPEC-09_Modelo_de_Cobranca_e_Maquinas_de_Estado.md`
 - **Data de Início**: 2026-10-28

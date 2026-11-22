@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import ClinicShell from './components/clinic/ClinicShell'
 import LandingPage from './pages/LandingPage'
+import AboutPage from './pages/AboutPage'
 import ClinicSignupPage from './pages/ClinicSignupPage'
 import PatientSignupPage from './pages/PatientSignupPage'
 import PatientWelcomePage from './pages/PatientWelcomePage'
@@ -17,6 +18,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/sobre" element={<AboutPage />} />
         <Route path="/cadastro-clinica" element={<ClinicSignupPage />} />
         <Route path="/cadastro-paciente" element={<PatientSignupPage />} />
         <Route path="/paciente/inicio" element={<PatientWelcomePage />} />
