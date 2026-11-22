@@ -1,4 +1,4 @@
-﻿# AGENTS.md - Regras Operacionais e Diretrizes Globais do Projeto (Gerenciar Mais Saúde)
+# AGENTS.md - Regras Operacionais e Diretrizes Globais do Projeto (Gerenciar Mais Saúde)
 
 Este documento contém as **regras permanentes e inegociáveis** do projeto *Gerenciar Mais Saúde*. Ele é carregado como contexto mestre de governança técnica, design e arquitetura para qualquer sessão de desenvolvimento.
 
@@ -9,10 +9,11 @@ Este documento contém as **regras permanentes e inegociáveis** do projeto *Ger
 - **Stack Tecnológica**: React 19, Vite, Tailwind CSS v4, `@tanstack/react-query`, `react-router-dom`, ícones via `lucide-react` e `@fortawesome/*`.
 - **Fase Atual (Frontend & Mock First)**:
   - **NÃO crie backends reais**, servidores Express adicionais, contêineres ou integrações de banco de dados (PostgreSQL/Supabase/Firebase) a menos que explicitamente solicitado.
-  - Toda persistência atual deve ser simulada localmente via `sessionStorage`, `localStorage` e serviços desacoplados em `src/services/*.js`.
+  - Quando a implementação do backend (`EVOL-002` / `SPEC-13`) for autorizada, o projeto Spring Boot + PostgreSQL residirá isolado na subpasta `backend/` deste mesmo repositório, mantendo a raiz (`package.json`, `vite.config.js`, `src/`) exclusiva do frontend React/Vite.
+  - Toda persistência atual do frontend deve permanecer simulada localmente via `sessionStorage`, `localStorage` e serviços desacoplados em `src/services/*.js`.
   - Dados padrão devem residir em `src/data/*.js`.
   - **Sempre use TanStack Query**: Todas as operações assíncronas de leitura e mutação devem ser encapsuladas em hooks com TanStack Query (`useQuery`, `useMutation` com invalidação ou atualização otimista de cache via `queryKey`).
-  - Frentes transversais futuras (expansão de tipos de organização, evolução para backend e melhoria de bundle) ficam rastreadas em `docs/prd/roadmap-evolucao.md`; esse roadmap não altera o escopo da SPEC ativa nem autoriza backend.
+  - Frentes transversais futuras (expansão de tipos de organização, evolução para backend e melhoria de bundle) ficam rastreadas em `docs/prd/roadmap-evolucao.md`; esse roadmap não altera o escopo da SPEC ativa nem autoriza iniciar código de backend sem autorização explícita.
 
 ---
 
@@ -50,9 +51,9 @@ Este documento contém as **regras permanentes e inegociáveis** do projeto *Ger
 
 ## 4. Máquina de Estados e Regras de Negócio de Agendamentos
 - **Contrato de negócio aprovado**: `docs/specs/SPEC-09_Modelo_de_Cobranca_e_Maquinas_de_Estado.md`. A SPEC-08 foi substituída pela SPEC-09; não referenciar a SPEC-08 como fonte de regras.
-- **Duas máquinas independentes**: Agendamento (Máquina 1) e Lançamento da taxa / `feeLedger` (Máquina 2). Nunca misturar status de pagamento no enum do agendamento.
+- **Duas máquinas independentes**: Agendamento (Máquina 1) e Taxa do Pedido do Paciente / `orderFee` (Máquina 2). Nunca misturar status de pagamento no enum do agendamento.
 - **Status operacional do agendamento** — compartilhado entre paciente, clínica e admin (mesmo enum nas três pontas): `SOLICITADO`, `CONFIRMADO_CLINICA`, `REALIZADO`, `NAO_COMPARECEU`, `CANCELADO`. Código novo não deve acrescentar `PAGO`, `PENDENCIA_PAGAMENTO`, `FINALIZADO`, `AGUARDANDO_PAGAMENTO` nem `ESTORNO_SOLICITADO` como status de agendamento.
-- **Status do lançamento da taxa (`feeLedger`)**: `EM_ANALISE`, `DEVIDA`, `COBRANCA_GERADA`, `PAGA`, `EM_ATRASO`, `ISENTA`.
+- **Status da taxa única do pedido (`orderFee`)**: `AGUARDANDO_CONFIRMACAO`, `PENDENTE_PAGAMENTO`, `PAGA`, `ISENTA`.
 - **Cores Oficiais dos Estados do Agendamento (Tailwind)**:
   - `SOLICITADO`: Azul (`blue-500` / `bg-blue-50 text-blue-700 border-blue-200`).
   - `CONFIRMADO_CLINICA`: Amarelo/Âmbar (`amber-500` / `bg-amber-50 text-amber-700 border-amber-200`).
@@ -60,15 +61,16 @@ Este documento contém as **regras permanentes e inegociáveis** do projeto *Ger
   - `NAO_COMPARECEU`: Cinza (`slate-600` / `bg-slate-100 text-slate-700 border-slate-300`).
   - `CANCELADO`: Vermelho (`red-500` / `bg-red-50 text-red-700 border-red-200`).
 - **Lógica de Transições** (SPEC-09 §4.1):
-  - A ação **"Confirmar Agendamento"** só é permitida quando o status for `SOLICITADO`.
+  - A ação **"Confirmar Agendamento"** só é permitida quando o status for `SOLICITADO`. Na primeira confirmação de qualquer item do pedido, gera-se o **token único de 6 caracteres por `orderId`** para apresentação presencial na clínica, e a `orderFee` do pedido passa para `PENDENTE_PAGAMENTO`.
   - **Check-in e conclusão são etapas separadas**: o check-in por token grava `checkedInAt` e habilita "Marcar realizado"; a transição para `REALIZADO` é uma ação explícita posterior da clínica.
   - `REALIZADO` exige `checkedInAt` preenchido. Busca manual registrada como `checkInMethod: MANUAL`.
   - Reversão `NAO_COMPARECEU` → `REALIZADO` permitida apenas por token (prova de guichê), registrada como `checkInMethod: MANUAL_REVERSAL` + `attendanceDispute: true`.
-  - **NUNCA** registre pagamento PIX do paciente nem transite agendamento para `PAGO`.
+  - Nunca misturar pagamento no enum do agendamento (nunca transitar agendamento para `PAGO`). O pagamento da taxa ocorre exclusivamente na máquina independente `orderFee`.
   - `CANCELADO` é terminal no agendamento. `REALIZADO` e `NAO_COMPARECEU` não recebem estorno no próprio status.
   - Transições devem ser centralizadas em funções puras (`getAvailableActions(status, role)` e `canTransition(from, to, role)`).
   - **Confirmação do paciente** (`patientAttendance`): solicitada apenas para agendamentos com data passada que ainda estejam em `CONFIRMADO_CLINICA`. Se a clínica já marcou `REALIZADO`, o paciente não é questionado.
-  - Taxa da plataforma: R$ 5,00 por par `orderId` + `clinicId` ao atingir estado cobrável (`REALIZADO` por padrão). Cobrada à clínica via boleto semanal emitido pela admin em `/admin/cobrancas`. Convênio não isenta a taxa. Estorno pertence ao boleto semanal e somente no modo `FULL_AMOUNT` (Fase B).
+  - **Taxa da plataforma (paga pelo paciente)**: valor **único de R$ 5,00 por pedido (`orderId`)**, independentemente da quantidade de clínicas ou exames no pedido, e sem isenção por convênio. O paciente pode quitar via portal após a confirmação da clínica ou comparecer presencialmente com o token; se houver qualquer pedido com `orderFee === 'PENDENTE_PAGAMENTO'`, o paciente fica bloqueado de concluir um novo pedido até quitar a pendência. A clínica recebe o valor dos procedimentos diretamente do paciente (ou via guia de convênio) e não sofre cobrança de taxa pela plataforma.
+  - **Modelo comercial da clínica e Financeiro (`/dashboard/financeiro`)**: após aprovação administrativa (`APROVADO`), a clínica recebe **3 meses (90 dias) de uso gratuito ilimitado**. Ao fim dos 90 dias sem adesão ao plano mensal de **R$ 99,00/mês**, o status transita automaticamente para `SUSPENSO` até regularização (`SPEC-05`). No painel `/dashboard/financeiro`, os 3 `StatCard` seguem a ordem `3 → 2 → 1` (*Receita pendente de validação* → *Receita confirmada* → *Exame realizado*), acompanhados do gráfico de progressão filtrável por Ano e Mês (Realizados vs. Pendentes e Particular vs. Convênio).
 - Google Auth e WhatsApp continuam na SPEC-07 / EVOL-005 e não fazem parte da máquina de agendamento.
 ---
 
@@ -93,7 +95,7 @@ Este documento contém as **regras permanentes e inegociáveis** do projeto *Ger
   - Rota base: `/paciente/inicio` e `/cadastro-paciente`.
   - **Agendamento**: O fluxo de busca, carrinho e solicitação de agendamentos será implementado primeiro no site (Landing Page / visão Paciente e rotas necessárias), com persistência mock conforme as specs. A experiência equivalente será incorporada ao App Mobile em etapa posterior.
   - A localização customizada para terceiros e o agendamento web são detalhados na SPEC-06. A Landing Page neutra e a separação dos nichos são detalhadas na SPEC-04. Não bloquear um fluxo de agendamento web definido por essas specs com aviso de uso exclusivo do app.
-  - A página `/paciente/inicio` mantém boas-vindas, confirmação de cadastro e perfil conforme seu escopo; links para lojas podem apresentar a etapa mobile futura sem substituir nem interromper o fluxo web.
+  - A página `/paciente/inicio` mantém boas-vindas, acesso rápido no topo para token ativo/taxa pendente, CTA para buscar exames (`/?nicho=paciente`), edição de cadastro (telefone, e-mail e convênios, mantendo CPF fixo) e histórico de pedidos; links para lojas apresentam a etapa mobile futura sem substituir nem interromper o fluxo web.
 - **Proteção Visual de Rotas**:
   - Mantenha guard mock verificando perfil ativo para evitar que paciente acesse `/dashboard` ou vice-versa.
 
@@ -107,7 +109,7 @@ Este documento contém as **regras permanentes e inegociáveis** do projeto *Ger
   - Ao submeter com erros, bloqueie o envio e dê foco automático no primeiro campo inválido.
 - **Campos Especiais**:
   - `PasswordInput`: Padrão de interação "pressionar/segurar para revelar" e "soltar para ocultar".
-  - Máscaras: CNPJ (`00.000.000/0000-00`), CPF (`000.000.000-00`), Telefone BR (`(00) 00000-0000`).
+  - Máscaras: CNPJ (`00.000.000/0000-00`), CPF (`000.000.000-00`), Telefone BR dinâmico (`(00) 0000-0000` para 10 dígitos ou `(00) 90000-0000` para 11 dígitos; no contato direto do gestor na Etapa 3 da clínica, aceitar 10 ou 11 dígitos após DDD válido sem trava do 3º dígito).
 
 ---
 
@@ -134,7 +136,7 @@ Antes de considerar qualquer modificação de código concluída:
   - Todo item listado na seção "Anti-Escopo" da spec ativa é uma restrição absoluta. A inclusão de qualquer item do anti-escopo constitui falha crítica de entrega.
 
 - **Fonte da Verdade da API (`docs/api/openapi.yaml`)**:
-  - O arquivo `docs/api/openapi.yaml` é a **fonte da verdade da API** entre frontend e backend. Toda e qualquer alteração de endpoints, contratos, payloads ou códigos de erro deve começar obrigatoriamente por ele antes de ser refletida no código ou em specs técnicas (como a SPEC-10). Enquanto o backend não residir em repositório próprio, o arquivo permanece versionado neste repositório do front; caso o backend seja movido no futuro, uma única cópia deve permanecer como fonte da verdade e a outra deve apenas referenciá-la.
+  - O arquivo `docs/api/openapi.yaml` é a **fonte da verdade da API** entre frontend e backend. Toda e qualquer alteração de endpoints, contratos, payloads ou códigos de erro deve começar obrigatoriamente por ele antes de ser refletida no código ou em specs técnicas (como a `SPEC-10` e a `SPEC-13`). Com o modelo monorepo adotado (`src/` na raiz e futuro backend Spring Boot isolado em `backend/`), uma única cópia permanece versionada em `docs/api/openapi.yaml` como referência comum sem duplicação divergente.
 ---
 
 ## 10. Protocolo de Fechamento de Ciclo e Rastreabilidade (Done & Sync)

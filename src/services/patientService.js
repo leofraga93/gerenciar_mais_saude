@@ -1,4 +1,5 @@
 import { DEFAULT_PATIENT_PROFILE } from '../data/patientProfile'
+import { validatePatientSignupField } from '../utils/patientSignupValidation'
 
 export const PATIENT_STORAGE_KEY = 'gms_patient_session'
 
@@ -8,6 +9,14 @@ function safeParse(json) {
   } catch {
     return null
   }
+}
+
+function normalizeInsuranceIds(ids) {
+  if (!Array.isArray(ids) || ids.length === 0) return ['ins-particular']
+  const normalized = ids
+    .filter(Boolean)
+    .map((id) => (String(id).startsWith('ins-') ? String(id) : `ins-${id}`))
+  return normalized.length > 0 ? [...new Set(normalized)] : ['ins-particular']
 }
 
 /**
@@ -36,16 +45,39 @@ export async function registerPatient(patientData) {
     birthDate: patientData.birthDate,
     email: patientData.email?.trim().toLowerCase(),
     phone: patientData.phone?.trim(),
-    insuranceIds:
-      Array.isArray(patientData.insuranceIds) && patientData.insuranceIds.length > 0
-        ? patientData.insuranceIds
-        : ['ins-particular'],
+    insuranceIds: normalizeInsuranceIds(patientData.insuranceIds),
     termsAccepted: Boolean(patientData.termsAccepted ?? patientData.acceptTerms),
     createdAt: patientData.createdAt || new Date().toISOString(),
   }
 
   window.sessionStorage.setItem(PATIENT_STORAGE_KEY, JSON.stringify(newPatient))
   return newPatient
+}
+
+/**
+ * Atualiza somente e-mail, telefone e convênios do paciente mantendo CPF, nome e nascimento fixos (SPEC-09).
+ */
+export async function updatePatientProfile({ email, phone, insuranceIds }) {
+  await new Promise((resolve) => setTimeout(resolve, 180))
+  if (typeof window === 'undefined') return null
+
+  const emailErr = validatePatientSignupField('email', email)
+  if (emailErr) throw new Error(emailErr)
+
+  const phoneErr = validatePatientSignupField('phone', phone)
+  if (phoneErr) throw new Error(phoneErr)
+
+  const current = (await getRegisteredPatient()) || { ...DEFAULT_PATIENT_PROFILE }
+  const updatedPatient = {
+    ...current,
+    email: String(email).trim().toLowerCase(),
+    phone: String(phone).trim(),
+    insuranceIds: normalizeInsuranceIds(insuranceIds),
+    updatedAt: new Date().toISOString(),
+  }
+
+  window.sessionStorage.setItem(PATIENT_STORAGE_KEY, JSON.stringify(updatedPatient))
+  return updatedPatient
 }
 
 /**

@@ -20,6 +20,8 @@ function ExamCartDrawer({
   onRequestAppointments,
   isSubmitting = false,
   requestError = '',
+  requestErrorCode = '',
+  onGoToPatientPortal = null,
 }) {
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false)
   const [draftStatus, setDraftStatus] = useState('idle')
@@ -238,8 +240,26 @@ function ExamCartDrawer({
             </ul>
             <footer className="border-t border-slate-200 p-4 sm:p-6">
               <div className="space-y-3">
-                {requestError && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{requestError}</p>}
+                {requestError && (
+                  <div role="alert" className="space-y-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">
+                    <p>{requestError}</p>
+                    {(requestErrorCode === 'FEE_PAYMENT_PENDING' ||
+                      requestErrorCode === 'ATTENDANCE_PENDING') &&
+                      onGoToPatientPortal && (
+                        <button
+                          type="button"
+                          onClick={onGoToPatientPortal}
+                          className="inline-flex items-center rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-700 cursor-pointer"
+                        >
+                          Ir para meu portal
+                        </button>
+                      )}
+                  </div>
+                )}
                 {items.some((item) => !hasValidSlot(item)) && <p className="text-xs text-slate-600">Selecione uma data e um horário disponível para cada exame antes de solicitar.</p>}
+                <p className="text-xs text-slate-500">
+                  Taxa única de agendamento: R$ 5,00 por pedido após confirmação da clínica.
+                </p>
                 <button
                   type="button"
                   onClick={handleRequest}

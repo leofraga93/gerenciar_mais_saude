@@ -68,17 +68,7 @@ function isValidBrazilianPhone(value) {
   if (phone.length !== 10 && phone.length !== 11) return false
 
   const ddd = Number(phone.slice(0, 2))
-  if (!VALID_DDDS.has(ddd)) return false
-
-  if (phone.length === 11 && phone[2] !== '9') {
-    return false
-  }
-
-  if (phone.length === 10 && !['2', '3', '4', '5'].includes(phone[2])) {
-    return false
-  }
-
-  return true
+  return VALID_DDDS.has(ddd)
 }
 
 function validateLegalName(value) {
@@ -144,9 +134,9 @@ function validateManagerName(value) {
 
 function validatePhone(value) {
   const phone = digitsOnly(value)
-  if (!phone) return 'Informe o telefone ou WhatsApp comercial.'
+  if (!phone) return 'Informe o telefone ou WhatsApp direto do responsável.'
   if (!isValidBrazilianPhone(phone)) {
-    return 'Telefone inválido. Use DDD + número (fixo ou celular com 9 dígitos).'
+    return 'Telefone inválido. Use DDD + 10 ou 11 dígitos.'
   }
   return null
 }

@@ -1,7 +1,17 @@
 import { useMemo, useState } from 'react'
-import { APPOINTMENT_STATUS, APPOINTMENT_STATUS_CONFIG, canTransitionAppointment } from '../../data/appointments'
-import { useAppointments, useUpdateAppointmentStatus } from '../../hooks/useAppointments'
+import {
+  APPOINTMENT_STATUS,
+  APPOINTMENT_STATUS_CONFIG,
+  getAvailableActions,
+} from '../../data/appointments'
+import { CHECK_IN_METHOD } from '../../constants/billingConstants'
+import {
+  useAppointments,
+  useManualCheckIn,
+  useUpdateAppointmentStatus,
+} from '../../hooks/useAppointments'
 import { StatusBadge } from '../../components/clinic/StatusBadge'
+import TokenCheckInForm from '../../components/clinic/TokenCheckInForm'
 import Toast from '../../components/common/Toast'
 import {
   IconCalendar,
@@ -15,40 +25,32 @@ import {
 } from '../../components/common/Icons'
 import { formatCurrencyBRL } from '../../utils/serviceValidation'
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/** Retorna os botões de ação permitidos pela máquina de estados. */
-function getAvailableActions(status) {
-  return [
-    ['confirm', APPOINTMENT_STATUS.CONFIRMADO_CLINICA],
-    ['pay', APPOINTMENT_STATUS.PAGO],
-    ['cancel', APPOINTMENT_STATUS.CANCELADO],
-  ]
-    .filter(([, nextStatus]) => canTransitionAppointment(status, nextStatus))
-    .map(([action]) => action)
-}
-
 function formatDate(dateStr) {
   if (!dateStr) return '—'
   const [year, month, day] = dateStr.split('-')
   return `${day}/${month}/${year}`
 }
 
-// ---------------------------------------------------------------------------
-// Sub-componentes
-// ---------------------------------------------------------------------------
+function getCheckInLabel(appointment) {
+  if (!appointment.checkedInAt) return null
+  if (appointment.checkInMethod === CHECK_IN_METHOD.MANUAL) return 'Check-in manual registrado'
+  if (appointment.checkInMethod === CHECK_IN_METHOD.MANUAL_REVERSAL) {
+    return 'Reversão presencial por token'
+  }
+  return 'Check-in validado por token'
+}
 
-function AppointmentCard({ appointment, onAction, isUpdating }) {
+function AppointmentCard({ appointment, onAction, onManualCheckIn, isUpdating }) {
   const [expanded, setExpanded] = useState(false)
-  const actions = getAvailableActions(appointment.status)
+  const actions = getAvailableActions(appointment.status, 'CLINIC', {
+    checkedInAt: appointment.checkedInAt,
+    checkInMethod: appointment.checkInMethod,
+  })
+  const checkInLabel = getCheckInLabel(appointment)
 
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md">
-      {/* Cabeçalho do card */}
       <div className="flex items-start gap-3 p-4">
-        {/* Avatar paciente */}
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-sm font-bold text-slate-600">
           {appointment.patientName.charAt(0).toUpperCase()}
         </div>
@@ -57,7 +59,7 @@ function AppointmentCard({ appointment, onAction, isUpdating }) {
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
               <p className="text-sm font-semibold text-slate-900">{appointment.patientName}</p>
-              <p className="mt-0.5 text-xs text-slate-500 flex items-center gap-1">
+              <p className="mt-0.5 flex items-center gap-1 text-xs text-slate-500">
                 <IconPhone className="h-3 w-3" />
                 {appointment.patientPhone}
               </p>
@@ -68,11 +70,11 @@ function AppointmentCard({ appointment, onAction, isUpdating }) {
           <p className="mt-2 text-sm font-medium text-slate-800">{appointment.serviceName}</p>
 
           <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-500">
-            <span className="flex items-center gap-1">
+            <span className="flex items-center gap-1 tabular-nums">
               <IconCalendar className="h-3.5 w-3.5" />
               {formatDate(appointment.date)}
             </span>
-            <span className="flex items-center gap-1">
+            <span className="flex items-center gap-1 tabular-nums">
               <IconClock className="h-3.5 w-3.5" />
               {appointment.time}
             </span>
@@ -80,16 +82,35 @@ function AppointmentCard({ appointment, onAction, isUpdating }) {
               <IconCreditCard className="h-3.5 w-3.5" />
               {appointment.insurance}
             </span>
-            <span className="font-semibold text-slate-700">
-              {formatCurrencyBRL(appointment.price)}
+            <span className="font-semibold text-slate-700 tabular-nums">
+              {appointment.paymentType === 'CONVENIO'
+                ? 'Via Convênio'
+                : formatCurrencyBRL(appointment.price)}
             </span>
           </div>
+
+          {(checkInLabel || appointment.attendanceDispute || appointment.orderId) && (
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+              {appointment.orderId && <span className="font-mono">Pedido {appointment.orderId}</span>}
+              {checkInLabel && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span className="font-semibold text-emerald-700">{checkInLabel}</span>
+                </>
+              )}
+              {appointment.attendanceDispute && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span className="font-semibold text-amber-700">Divergência auditada</span>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Painel expandido: instruções + observações */}
       {expanded && (
-        <div className="border-t border-slate-100 bg-slate-50 px-4 py-3 text-xs text-slate-600 space-y-2">
+        <div className="space-y-2 border-t border-slate-100 bg-slate-50 px-4 py-3 text-xs text-slate-600">
           {appointment.prepInstructions && (
             <div>
               <span className="font-semibold text-slate-700">Instruções de preparo: </span>
@@ -103,45 +124,83 @@ function AppointmentCard({ appointment, onAction, isUpdating }) {
             </div>
           )}
           <div>
-            <span className="font-semibold text-slate-700">Pagamento previsto: </span>
-            {appointment.paymentMethod}
+            <span className="font-semibold text-slate-700">Modalidade: </span>
+            {appointment.paymentMethod || appointment.insurance}
           </div>
+          {appointment.checkInToken && (
+            <div>
+              <span className="font-semibold text-slate-700">Token do pedido: </span>
+              <span className="font-mono font-bold text-slate-800">{appointment.checkInToken}</span>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Rodapé de ações */}
-      <div className="flex items-center justify-between border-t border-slate-100 px-4 py-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-4 py-2.5">
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="text-xs text-slate-400 hover:text-slate-600 transition"
+          className="text-xs text-slate-500 transition hover:text-slate-700 cursor-pointer"
         >
           {expanded ? 'Ocultar detalhes' : 'Ver detalhes'}
         </button>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {actions.includes('confirm') && (
             <button
               type="button"
               disabled={isUpdating}
               onClick={() => onAction(appointment.id, APPOINTMENT_STATUS.CONFIRMADO_CLINICA)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 transition"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50 cursor-pointer"
             >
               <IconCheck className="h-3.5 w-3.5" />
-              Confirmar
+              Confirmar vaga
             </button>
           )}
 
-          {actions.includes('pay') && (
+          {actions.includes('checkin_manual') && (
             <button
               type="button"
               disabled={isUpdating}
-              onClick={() => onAction(appointment.id, APPOINTMENT_STATUS.PAGO)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700 disabled:opacity-50 transition"
+              onClick={() => onManualCheckIn(appointment.id)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-800 transition hover:bg-blue-100 disabled:opacity-50 cursor-pointer"
             >
-              <IconCreditCard className="h-3.5 w-3.5" />
-              Registrar Pagamento
+              Registrar chegada (Manual)
             </button>
+          )}
+
+          {actions.includes('complete') && (
+            <button
+              type="button"
+              disabled={isUpdating}
+              onClick={() =>
+                onAction(appointment.id, APPOINTMENT_STATUS.REALIZADO, {
+                  checkedInAt: appointment.checkedInAt,
+                  checkInMethod: appointment.checkInMethod || CHECK_IN_METHOD.TOKEN,
+                })
+              }
+              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50 cursor-pointer"
+            >
+              <IconCheck className="h-3.5 w-3.5" />
+              Marcar realizado
+            </button>
+          )}
+
+          {actions.includes('no_show') && (
+            <button
+              type="button"
+              disabled={isUpdating}
+              onClick={() => onAction(appointment.id, APPOINTMENT_STATUS.NAO_COMPARECEU)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-200 disabled:opacity-50 cursor-pointer"
+            >
+              Não compareceu
+            </button>
+          )}
+
+          {actions.includes('reverse_token') && (
+            <span className="text-[11px] font-medium text-slate-500">
+              Para reverter ausência, valide o token acima.
+            </span>
           )}
 
           {actions.includes('cancel') && (
@@ -149,7 +208,7 @@ function AppointmentCard({ appointment, onAction, isUpdating }) {
               type="button"
               disabled={isUpdating}
               onClick={() => onAction(appointment.id, APPOINTMENT_STATUS.CANCELADO)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50 transition"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:opacity-50 cursor-pointer"
             >
               <IconClose className="h-3.5 w-3.5" />
               Recusar
@@ -161,10 +220,6 @@ function AppointmentCard({ appointment, onAction, isUpdating }) {
   )
 }
 
-// ---------------------------------------------------------------------------
-// Página principal
-// ---------------------------------------------------------------------------
-
 const STATUS_FILTER_OPTIONS = [
   { id: 'all', label: 'Todos' },
   ...Object.values(APPOINTMENT_STATUS_CONFIG).map((c) => ({ id: c.id, label: c.label })),
@@ -173,6 +228,7 @@ const STATUS_FILTER_OPTIONS = [
 export default function ClinicAgendaPage() {
   const { data: appointments = [], isLoading, isError } = useAppointments()
   const updateStatus = useUpdateAppointmentStatus()
+  const manualCheckInMutation = useManualCheckIn()
 
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterDate, setFilterDate] = useState('')
@@ -180,9 +236,9 @@ export default function ClinicAgendaPage() {
 
   const showToast = (message, type = 'success') => setToast({ message, type })
 
-  const handleAction = async (id, newStatus) => {
+  const handleAction = async (id, newStatus, extra = {}) => {
     try {
-      await updateStatus.mutateAsync({ id, newStatus })
+      await updateStatus.mutateAsync({ id, newStatus, role: 'CLINIC', ...extra })
       const label = APPOINTMENT_STATUS_CONFIG[newStatus]?.label ?? newStatus
       showToast(`Status atualizado para: ${label}`)
     } catch (error) {
@@ -190,7 +246,18 @@ export default function ClinicAgendaPage() {
     }
   }
 
-  // Contagens por status para os badges de filtro
+  const handleManualCheckIn = async (appointmentId) => {
+    try {
+      await manualCheckInMutation.mutateAsync({
+        appointmentId,
+        reason: 'Paciente identificado presencialmente na recepção',
+      })
+      showToast('Chegada manual registrada. Clique em "Marcar realizado" após o exame.')
+    } catch (error) {
+      showToast(error.message || 'Não foi possível registrar a chegada manual.', 'error')
+    }
+  }
+
   const countByStatus = useMemo(() => {
     const counts = {}
     appointments.forEach((a) => {
@@ -206,24 +273,29 @@ export default function ClinicAgendaPage() {
     return list
   }, [appointments, filterStatus, filterDate])
 
-  // Agendamentos do dia para o indicador de resumo
   const today = new Date().toISOString().split('T')[0]
   const todayCount = appointments.filter((a) => a.date === today).length
   const pendingCount = appointments.filter(
     (a) => a.status === APPOINTMENT_STATUS.SOLICITADO,
   ).length
+  const realizedCount = appointments.filter(
+    (a) => a.status === APPOINTMENT_STATUS.REALIZADO,
+  ).length
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 pb-12">
-      {/* Cabeçalho */}
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Agenda</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Gerencie as solicitações de agendamento e avance o status via Máquina de Estados.
+          Confirme solicitações, valide o token presencial do paciente e conclua os atendimentos realizados.
         </p>
       </div>
 
-      {/* Resumo rápido */}
+      <TokenCheckInForm
+        onSuccessToast={(msg) => showToast(msg, 'success')}
+        onErrorToast={(msg) => showToast(msg, 'error')}
+      />
+
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
           {
@@ -234,17 +306,17 @@ export default function ClinicAgendaPage() {
           {
             label: 'Hoje',
             value: todayCount,
-            cls: 'border-blue-100 text-blue-700 bg-blue-50/40',
+            cls: 'border-blue-100 bg-blue-50/40 text-blue-700',
           },
           {
-            label: 'Pendentes',
+            label: 'Solicitações pendentes',
             value: pendingCount,
-            cls: 'border-amber-100 text-amber-700 bg-amber-50/40',
+            cls: 'border-amber-100 bg-amber-50/40 text-amber-700',
           },
           {
-            label: 'Pagos (mês)',
-            value: appointments.filter((a) => a.status === APPOINTMENT_STATUS.PAGO).length,
-            cls: 'border-emerald-100 text-emerald-700 bg-emerald-50/40',
+            label: 'Exames realizados',
+            value: realizedCount,
+            cls: 'border-emerald-100 bg-emerald-50/40 text-emerald-700',
           },
         ].map((item) => (
           <div
@@ -252,14 +324,12 @@ export default function ClinicAgendaPage() {
             className={`rounded-xl border bg-white px-4 py-3 ${item.cls}`}
           >
             <p className="text-xs font-medium text-slate-500">{item.label}</p>
-            <p className={`text-2xl font-bold leading-none mt-0.5`}>{item.value}</p>
+            <p className="mt-0.5 text-2xl font-bold leading-none tabular-nums">{item.value}</p>
           </div>
         ))}
       </div>
 
-      {/* Filtros */}
-      <div className="rounded-xl border border-slate-200 bg-white px-4 py-3.5 space-y-3">
-        {/* Filtro por status (pills) */}
+      <div className="space-y-3 rounded-xl border border-slate-200 bg-white px-4 py-3.5">
         <div className="space-y-1.5">
           <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
             <IconFilter className="h-3.5 w-3.5 text-emerald-600" />
@@ -274,14 +344,14 @@ export default function ClinicAgendaPage() {
                   key={opt.id}
                   type="button"
                   onClick={() => setFilterStatus(opt.id)}
-                  className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
                     isSelected
-                      ? 'bg-emerald-100/90 text-emerald-900 border-emerald-300 shadow-sm ring-1 ring-emerald-400/30'
-                      : 'bg-slate-100 text-slate-600 border-transparent hover:bg-slate-200 hover:text-slate-800'
+                      ? 'border-emerald-300 bg-emerald-100/90 text-emerald-900 shadow-sm ring-1 ring-emerald-400/30'
+                      : 'border-transparent bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-800'
                   }`}
                 >
                   {opt.label}
-                  <span className={`text-[11px] ${isSelected ? 'text-emerald-700 font-medium' : 'text-slate-400'}`}>
+                  <span className={`text-[11px] tabular-nums ${isSelected ? 'font-medium text-emerald-700' : 'text-slate-400'}`}>
                     ({count})
                   </span>
                 </button>
@@ -290,11 +360,10 @@ export default function ClinicAgendaPage() {
           </div>
         </div>
 
-        {/* Filtro por data */}
         <div className="flex items-center gap-2">
           <label
             htmlFor="filter-date"
-            className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 shrink-0"
+            className="flex shrink-0 items-center gap-1.5 text-xs font-semibold text-slate-700"
           >
             <IconCalendar className="h-3.5 w-3.5 text-emerald-600" />
             Data:
@@ -304,13 +373,13 @@ export default function ClinicAgendaPage() {
             type="date"
             value={filterDate}
             onChange={(e) => setFilterDate(e.target.value)}
-            className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-400/20 transition"
+            className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-400/20"
           />
           {filterDate && (
             <button
               type="button"
               onClick={() => setFilterDate('')}
-              className="text-xs text-rose-500 hover:text-rose-700 transition"
+              className="text-xs text-rose-500 transition hover:text-rose-700 cursor-pointer"
             >
               Limpar
             </button>
@@ -318,12 +387,11 @@ export default function ClinicAgendaPage() {
         </div>
       </div>
 
-      {/* Estados de loading / erro / vazio */}
       {isLoading && (
-        <p className="text-center text-sm text-slate-400 py-10">Carregando agendamentos…</p>
+        <p className="py-10 text-center text-sm text-slate-400">Carregando agendamentos…</p>
       )}
       {isError && (
-        <p className="text-center text-sm text-red-600 py-10">
+        <p className="py-10 text-center text-sm text-red-600">
           Não foi possível carregar os agendamentos.
         </p>
       )}
@@ -340,7 +408,7 @@ export default function ClinicAgendaPage() {
             <button
               type="button"
               onClick={() => { setFilterStatus('all'); setFilterDate('') }}
-              className="mt-3 text-xs font-semibold text-emerald-600 hover:underline"
+              className="mt-3 text-xs font-semibold text-emerald-600 hover:underline cursor-pointer"
             >
               Limpar filtros
             </button>
@@ -348,10 +416,9 @@ export default function ClinicAgendaPage() {
         </div>
       )}
 
-      {/* Lista de cards */}
       {!isLoading && !isError && filtered.length > 0 && (
         <>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-slate-400 tabular-nums">
             Exibindo <strong>{filtered.length}</strong> de {appointments.length} agendamentos
           </p>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -360,14 +427,14 @@ export default function ClinicAgendaPage() {
                 key={apt.id}
                 appointment={apt}
                 onAction={handleAction}
-                isUpdating={updateStatus.isPending}
+                onManualCheckIn={handleManualCheckIn}
+                isUpdating={updateStatus.isPending || manualCheckInMutation.isPending}
               />
             ))}
           </div>
         </>
       )}
 
-      {/* Legenda da máquina de estados */}
       <div className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
         <p className="mb-2 text-xs font-semibold text-slate-600">Fluxo de estados:</p>
         <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
@@ -378,8 +445,8 @@ export default function ClinicAgendaPage() {
             </span>
           ))}
         </div>
-        <p className="mt-2 text-[11px] text-slate-400">
-          PAGO e CANCELADO são estados terminais — nenhuma ação adicional está disponível.
+        <p className="mt-2 text-[11px] text-slate-500">
+          REALIZADO e CANCELADO são estados terminais. A transição para REALIZADO exige check-in prévio na recepção; NAO_COMPARECEU só pode ser revertido mediante validação de token presencial.
         </p>
       </div>
 

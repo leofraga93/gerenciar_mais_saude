@@ -3,6 +3,7 @@ import {
   clearRegisteredPatient,
   getPatientProfile,
   registerPatient,
+  updatePatientProfile,
 } from '../services/patientService'
 
 export const PATIENT_QUERY_KEYS = {
@@ -20,7 +21,7 @@ export function usePatientProfile() {
 }
 
 /**
- * Hook mutation para registrar ou atualizar o paciente.
+ * Hook mutation para registrar o paciente.
  */
 export function useRegisterPatient() {
   const queryClient = useQueryClient()
@@ -30,6 +31,23 @@ export function useRegisterPatient() {
     onSuccess: (savedPatient) => {
       queryClient.setQueryData(PATIENT_QUERY_KEYS.profile, savedPatient)
       queryClient.invalidateQueries({ queryKey: PATIENT_QUERY_KEYS.profile })
+      queryClient.invalidateQueries({ queryKey: ['landing', 'registered-profiles'] })
+    },
+  })
+}
+
+/**
+ * Hook mutation para editar e-mail, telefone e convênios mantendo CPF fixo.
+ */
+export function useUpdatePatientProfile() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: updatePatientProfile,
+    onSuccess: (updatedPatient) => {
+      queryClient.setQueryData(PATIENT_QUERY_KEYS.profile, updatedPatient)
+      queryClient.invalidateQueries({ queryKey: PATIENT_QUERY_KEYS.profile })
+      queryClient.invalidateQueries({ queryKey: ['landing', 'registered-profiles'] })
     },
   })
 }

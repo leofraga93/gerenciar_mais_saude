@@ -48,6 +48,7 @@ function LandingPage() {
   const [draftExam, setDraftExam] = useState(null)
   const [orderSummary, setOrderSummary] = useState(null)
   const [requestError, setRequestError] = useState('')
+  const [requestErrorCode, setRequestErrorCode] = useState('')
   const pendingOrderAfterAuth = useRef(false)
   const queryClient = useQueryClient()
   const orderMutation = useCreateAppointmentOrder()
@@ -89,6 +90,7 @@ function LandingPage() {
 
   const beginExamRequest = useCallback((item) => {
     setRequestError('')
+    setRequestErrorCode('')
     setDraftExam(item)
     setCartOpen(true)
   }, [])
@@ -110,6 +112,7 @@ function LandingPage() {
 
   const submitOrder = useCallback(async (patient, { navigateToWelcome = false } = {}) => {
     setRequestError('')
+    setRequestErrorCode('')
     try {
       const order = await orderMutation.mutateAsync({ items: cartItems, patient })
       await clearCart()
@@ -130,6 +133,7 @@ function LandingPage() {
       pendingOrderAfterAuth.current = false
     } catch (error) {
       setRequestError(error.message || 'Não foi possível registrar os agendamentos. Revise os itens e tente novamente.')
+      setRequestErrorCode(error.code || '')
       setCartOpen(true)
       setAuthOpen(false)
       window.sessionStorage.removeItem(PENDING_ORDER_STORAGE_KEY)
@@ -258,6 +262,12 @@ function LandingPage() {
                 </span>
               </button>
             )}
+            <Link
+              to="/sobre"
+              className="whitespace-nowrap shrink-0 rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+            >
+              Quem Somos
+            </Link>
           </div>
         </div>
       </header>
@@ -345,6 +355,7 @@ function LandingPage() {
               <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Navegação Rápida</h2>
               <ul className="space-y-2 text-xs text-slate-300">
                 <li><button type="button" onClick={() => scrollToSection('inicio')} className="transition hover:text-emerald-400">Início</button></li>
+                <li><Link to="/sobre" className="transition hover:text-emerald-400">Quem Somos</Link></li>
                 {headerLinks.map((link) => (
                   <li key={link.id}><button type="button" onClick={() => scrollToSection(link.id)} className="transition hover:text-emerald-400">{link.label}</button></li>
                 ))}
@@ -407,6 +418,11 @@ function LandingPage() {
           onRequestAppointments={openRequestReview}
           isSubmitting={orderMutation.isPending}
           requestError={requestError}
+          requestErrorCode={requestErrorCode}
+          onGoToPatientPortal={() => {
+            setCartOpen(false)
+            navigate('/paciente/inicio')
+          }}
         />
       )}
       {isReviewOpen && <ExamRequestReviewModal items={cartItems} onClose={() => { setReviewOpen(false); setCartOpen(true) }} onConfirm={confirmRequestReview} />}

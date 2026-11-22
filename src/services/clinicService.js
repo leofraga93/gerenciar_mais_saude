@@ -1,6 +1,11 @@
 import { CLINIC_SESSION_KEY } from '../constants/clinicStorage'
+import {
+  CLINIC_MONTHLY_PLAN_BRL,
+  CLINIC_SUBSCRIPTION_STATUS,
+  TRIAL_DURATION_DAYS,
+} from '../constants/billingConstants'
 import { DEFAULT_CLINIC_PROFILE } from '../data/clinicProfileData'
-import { formatCnpj, formatPhone } from '../utils/clinicSignupValidation'
+import { formatCnpj } from '../utils/clinicSignupValidation'
 
 const PROFILE_STORAGE_KEY = 'gerenciar_saude_clinic_profile_v1'
 const CLINIC_REGISTRY_STORAGE_KEY = 'gerenciar_saude_clinics_registry_v1'
@@ -13,11 +18,52 @@ export const CLINIC_APPROVAL_STATUS = Object.freeze({
   REJECTED: 'REJEITADO',
 })
 
+function addDaysIso(baseDate, days) {
+  const next = new Date(baseDate.getTime())
+  next.setDate(next.getDate() + days)
+  return next.toISOString()
+}
+
+export function normalizeClinicTrialState(clinic, now = new Date()) {
+  if (!clinic) return null
+  const normalized = {
+    ...clinic,
+    statusAprovacao: clinic.statusAprovacao || CLINIC_APPROVAL_STATUS.PENDING,
+    trialStartedAt: clinic.trialStartedAt || null,
+    trialEndsAt: clinic.trialEndsAt || null,
+    subscriptionStatus: clinic.subscriptionStatus || CLINIC_SUBSCRIPTION_STATUS.TRIAL,
+    monthlyPlanPrice: clinic.monthlyPlanPrice ?? CLINIC_MONTHLY_PLAN_BRL,
+  }
+
+  if (
+    normalized.statusAprovacao === CLINIC_APPROVAL_STATUS.APPROVED &&
+    normalized.trialEndsAt &&
+    normalized.subscriptionStatus !== CLINIC_SUBSCRIPTION_STATUS.ACTIVE_SUBSCRIPTION &&
+    now.getTime() > new Date(normalized.trialEndsAt).getTime()
+  ) {
+    return {
+      ...normalized,
+      statusAprovacao: CLINIC_APPROVAL_STATUS.SUSPENDED,
+      subscriptionStatus: CLINIC_SUBSCRIPTION_STATUS.TRIAL_EXPIRED,
+      suspensionReason: 'TRIAL_EXPIRED',
+    }
+  }
+
+  return normalized
+}
+
+export function getClinicTrialRemainingDays(clinic, now = new Date()) {
+  if (!clinic?.trialEndsAt) return null
+  const diffMs = new Date(clinic.trialEndsAt).getTime() - now.getTime()
+  if (Number.isNaN(diffMs)) return null
+  return Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)))
+}
+
 function readClinicRegistry() {
   try {
     const raw = localStorage.getItem(CLINIC_REGISTRY_STORAGE_KEY)
     const clinics = raw ? JSON.parse(raw) : []
-    return Array.isArray(clinics) ? clinics : []
+    return Array.isArray(clinics) ? clinics.map((c) => normalizeClinicTrialState(c)) : []
   } catch {
     return []
   }
@@ -32,7 +78,7 @@ function upsertClinicRegistry(clinic) {
   const exists = clinics.some((registeredClinic) => registeredClinic.id === clinic.id)
   writeClinicRegistry(
     exists
-      ? clinics.map((registeredClinic) => registeredClinic.id === clinic.id ? clinic : registeredClinic)
+      ? clinics.map((registeredClinic) => (registeredClinic.id === clinic.id ? clinic : registeredClinic))
       : [clinic, ...clinics],
   )
 }
@@ -42,6 +88,7 @@ function upsertClinicRegistry(clinic) {
  * Persiste no sessionStorage para o dashboard exibir nome e banner até haver API.
  */
 export function registerClinic(payload) {
+  const nowIso = new Date().toISOString()
   const record = {
     id: `clinic-mock-${Date.now()}`,
     legalName: payload.legalName.trim(),
@@ -53,8 +100,12 @@ export function registerClinic(payload) {
     referralCode: payload.referralCode?.trim() || null,
     profileComplete: false,
     statusAprovacao: CLINIC_APPROVAL_STATUS.PENDING,
-    statusUpdatedAt: new Date().toISOString(),
-    registeredAt: new Date().toISOString(),
+    trialStartedAt: null,
+    trialEndsAt: null,
+    subscriptionStatus: CLINIC_SUBSCRIPTION_STATUS.TRIAL,
+    monthlyPlanPrice: CLINIC_MONTHLY_PLAN_BRL,
+    statusUpdatedAt: nowIso,
+    registeredAt: nowIso,
   }
 
   return new Promise((resolve) => {
@@ -76,16 +127,13 @@ export function getRegisteredClinic() {
     const raw = sessionStorage.getItem(CLINIC_SESSION_KEY)
     if (!raw) return null
     const clinic = JSON.parse(raw)
-    return {
-      ...clinic,
-      statusAprovacao: clinic.statusAprovacao || CLINIC_APPROVAL_STATUS.PENDING,
-    }
+    return normalizeClinicTrialState(clinic)
   } catch {
     return null
   }
 }
 
-/** Atualiza o status de moderação no mock persistido da sessão da clínica. */
+/** Atualiza o status de moderação e inicializa trial de 90 dias na primeira aprovação (SPEC-05). */
 export function updateClinicApprovalStatus(clinicId, status) {
   const allowedStatuses = Object.values(CLINIC_APPROVAL_STATUS)
   if (!allowedStatuses.includes(status)) {
@@ -97,12 +145,36 @@ export function updateClinicApprovalStatus(clinicId, status) {
   const clinic = clinics.find((registeredClinic) => registeredClinic.id === clinicId)
   if (!clinic) throw new Error('Clínica não encontrada no registro mock.')
 
-  const updatedClinic = {
+  const now = new Date()
+  const nowIso = now.toISOString()
+  let nextTrialStartedAt = clinic.trialStartedAt || null
+  let nextTrialEndsAt = clinic.trialEndsAt || null
+  let nextSubscriptionStatus = clinic.subscriptionStatus || CLINIC_SUBSCRIPTION_STATUS.TRIAL
+  let nextSuspensionReason = clinic.suspensionReason || null
+
+  if (status === CLINIC_APPROVAL_STATUS.APPROVED) {
+    if (!nextTrialStartedAt) {
+      nextTrialStartedAt = nowIso
+      nextTrialEndsAt = addDaysIso(now, TRIAL_DURATION_DAYS)
+      nextSubscriptionStatus = CLINIC_SUBSCRIPTION_STATUS.TRIAL
+    } else if (nextSubscriptionStatus === CLINIC_SUBSCRIPTION_STATUS.TRIAL_EXPIRED) {
+      nextSubscriptionStatus = CLINIC_SUBSCRIPTION_STATUS.ACTIVE_SUBSCRIPTION
+    }
+    nextSuspensionReason = null
+  }
+
+  const updatedClinic = normalizeClinicTrialState({
     ...clinic,
     statusAprovacao: status,
-    statusUpdatedAt: new Date().toISOString(),
-  }
-  writeClinicRegistry(clinics.map((registeredClinic) => registeredClinic.id === clinicId ? updatedClinic : registeredClinic))
+    trialStartedAt: nextTrialStartedAt,
+    trialEndsAt: nextTrialEndsAt,
+    subscriptionStatus: nextSubscriptionStatus,
+    monthlyPlanPrice: clinic.monthlyPlanPrice ?? CLINIC_MONTHLY_PLAN_BRL,
+    suspensionReason: nextSuspensionReason,
+    statusUpdatedAt: nowIso,
+  }, now)
+
+  writeClinicRegistry(clinics.map((registeredClinic) => (registeredClinic.id === clinicId ? updatedClinic : registeredClinic)))
   const activeClinic = getRegisteredClinic()
   if (activeClinic?.id === clinicId) {
     sessionStorage.setItem(CLINIC_SESSION_KEY, JSON.stringify(updatedClinic))
@@ -131,6 +203,7 @@ export function clearRegisteredClinic() {
 
 /**
  * Carrega o perfil completo e fotos da clínica do localStorage ou inicializa padrão.
+ * O telefone direto do gestor (Etapa 3) NÃO sobrescreve o telefone comercial público da clínica.
  */
 export function getClinicProfile() {
   return new Promise((resolve) => {
@@ -144,7 +217,6 @@ export function getClinicProfile() {
           profile = JSON.parse(raw)
         }
 
-        // Se houver dados de credenciamento na sessão, mescla o nome fantasia, CNPJ e contatos
         if (clinicSession) {
           profile = {
             ...profile,
@@ -152,7 +224,6 @@ export function getClinicProfile() {
             tradeName: clinicSession.tradeName || profile.tradeName,
             cnpj: clinicSession.cnpj ? formatCnpj(clinicSession.cnpj) : profile.cnpj,
             email: clinicSession.email || profile.email,
-            phone: clinicSession.phone ? formatPhone(clinicSession.phone) : profile.phone,
           }
         }
 
@@ -201,7 +272,6 @@ export function addClinicPhoto(photo) {
           uploadedAt: new Date().toISOString(),
         }
 
-        // Se for capa, remove capa anterior
         const updatedPhotos = newPhoto.isCover
           ? [newPhoto, ...photos.map((p) => ({ ...p, isCover: false }))]
           : [newPhoto, ...photos]
@@ -251,7 +321,6 @@ export function deleteClinicPhoto(photoId) {
         const profile = raw ? JSON.parse(raw) : { ...DEFAULT_CLINIC_PROFILE }
         let photos = (profile.photos || []).filter((p) => p.id !== photoId)
 
-        // Se removeu a capa e ainda restam fotos, a primeira vira capa
         const hasCover = photos.some((p) => p.isCover)
         if (!hasCover && photos.length > 0) {
           photos[0].isCover = true

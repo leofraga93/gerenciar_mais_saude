@@ -1,8 +1,8 @@
 ### Checklist - Landing Page Hub (Clínicas + Pacientes)
-Base de comparação: `docs/AGENTS.md`, SPEC-04 e roadmap do projeto.
-Roadmap transversal de evolução: `docs/prd/roadmap-evolucao.md` (itens EVOL-001 a EVOL-014; Google Auth e WhatsApp aguardam EVOL-005; boleto real aguarda EVOL-014). A copy de taxa PIX do paciente é substituída na implementação da SPEC-09.
+Base de comparação: `docs/AGENTS.md`, SPEC-04, SPEC-12 e roadmap do projeto.
+Roadmap transversal de evolução: `docs/prd/roadmap-evolucao.md` (itens EVOL-001 a EVOL-021; Google Auth e WhatsApp aguardam EVOL-005; pagamento Pix real aguarda EVOL-014; e-mails automáticos pós-trial em EVOL-019). A taxa única de agendamento de R$ 5,00 por pedido é paga pelo paciente (SPEC-09).
 
-**Decisão de experiência:** a rota `/` inicia neutra e convidativa, com promessa institucional, escolha explícita entre Paciente e Clínica e elementos globais compartilhados. A escolha troca a área principal por uma experiência B2C ou B2B dedicada. Busca para terceiros e agendamento no site pertencem à SPEC-06; Google Auth pertence à SPEC-07; credenciamento da clínica pertence à SPEC-05.
+**Decisão de experiência:** a rota `/` inicia neutra e convidativa, com promessa institucional, escolha explícita entre Paciente e Clínica e elementos globais compartilhados. A escolha troca a área principal por uma experiência B2C ou B2B dedicada. O link **"Quem Somos"** no cabeçalho (extremidade direita) e no rodapé abre a página dedicada `/sobre` (SPEC-12). Busca para terceiros e agendamento no site pertencem à SPEC-06; Google Auth pertence à SPEC-07; credenciamento da clínica pertence à SPEC-05.
 
 --------------------------------------------------------------------------------
 
@@ -37,20 +37,22 @@ Roadmap transversal de evolução: `docs/prd/roadmap-evolucao.md` (itens EVOL-00
 ##### 2.3 Visão Segmentada B2B — Clínica (`activeNiche = 'CLINIC'`)
 *  [x] **Proposta de Valor B2B:** Foco em redução de *no-show*, gestão de agenda e liquidação digital.
 *  [x] **Benefícios Operacionais:** Cards qualitativos sobre agenda, redução de faltas e recebimento. Métricas demonstrativas aparecem somente no estado neutro e são claramente identificadas como ilustrativas; não incluir calculadora de ROI nesta etapa.
+*  [x] **Transparência Comercial B2B (`SPEC-05`):** Informar na visão Clínica os **3 meses (90 dias) de uso gratuito ilimitado** após aprovação e o valor de **R$ 99,00/mês** após o período de experiência.
 *  [x] **CTAs Contextualizados B2B:** Botão primário **"Credenciar Minha Clínica"** (`/cadastro-clinica`, fluxo da SPEC-05) e botão secundário **"Acessar Portal"** (abre `AuthModal` no contexto Clínica).
 
 --------------------------------------------------------------------------------
 
 #### 3) Implementações e Componentes da Landing Page
 ##### 3.1 Jornada do Paciente: Passo a Passo (visível somente em `PATIENT`)
-Na SPEC-04, esta jornada deixa de aparecer na entrada neutra. Seu conteúdo atual trata de encontrar e agendar exames, então fica dentro da visão Paciente. A visão Clínica terá jornada própria de credenciamento/gestão; não reutilizar estes passos B2C como comunicação B2B.
-*  [x] **Container Verde de Alto Destaque:** Faixa atualmente existente; na SPEC-04 fica dentro da jornada da visão Paciente e deixa de ser apresentada como mensagem comum para clínicas e pacientes.
-*  [x] **Processo Intuitivo em 4 Passos:**
-    1. *01. Encontre especialistas & exames:* Busca por região, convênios, especialidades e exames.
-    2. *02. Marque consultas & exames:* Escolha simplificada de dia, horário e clínica sem burocracia.
-    3. *03. Receba lembretes & preparo:* Confirmações instantâneas e orientações automáticas de preparo via WhatsApp e e-mail.
-    4. *04. Atendimento & avaliação:* Atendimento ágil e avaliação pós-serviço para fortalecer a rede.
-*  [x] **Ícones Vetoriais FontAwesome:** Integração com @fortawesome/free-solid-svg-icons (MagnifyingGlass, CalendarCheck, Bell, ThumbsUp) para reforço visual imediato.
+Na SPEC-04, esta jornada deixa de aparecer na entrada neutra e fica dentro da visão Paciente (`#jornada-paciente`). Na SPEC-12, o título, os 4 passos e a chamada de encerramento seguem a comunicação oficial do cliente, sem emojis e sem eyebrows/subtítulos decorativos:
+*  [x] **Container Verde de Alto Destaque:** Faixa atualmente existente dentro da visão Paciente.
+*  [x] **Processo Intuitivo em 4 Passos (Item 1 — SPEC-12):** Título `Informação clara em cada etapa!`:
+    1. `01 - Encontre exames e especialistas.`: `Busque por região, convênio, especialidade ou tipo de exame.`
+    2. `02 - Escolha como e onde quer ser atendido.`: `Compare valores e conheça outras opções de referência para fazer a melhor escolha.`
+    3. `03 - Prepare-se com tranquilidade.`: `Consulte todas as orientações necessárias para o seu atendimento.`
+    4. `04 - Pague a taxa de agendamento e acompanhe sua jornada`: `com acesso a todas as informações necessárias para realizar o procedimento escolhido com mais facilidade, tranquilidade, cuidado e segurança que a Gerenciar Mais Saúde oferece.`
+    - Fechamento abaixo dos cards: `Viu como é simples e rápido?`
+*  [x] **Ícones Vetoriais:** Zero emojis na UI.
 
 ##### 3.2 Vitrine Pública de Catálogo & Busca Interativa com Múltiplos Filtros
 *  [x] **Vitrine de Procedimentos e Exames:** Integrada na landing page acima dos depoimentos.
@@ -66,6 +68,7 @@ Na SPEC-04, esta jornada deixa de aparecer na entrada neutra. Seu conteúdo atua
 *  [x] **Identidade Visual e Logo em Contraste:** Badge estilizado com a logo da marca em fundo branco e texto descritivo institucional.
 *  [x] **Canais de Contato:** Telefone fixo, WhatsApp comercial direto, e-mail institucional e localização física (Lauro de Freitas e Salvador - BA).
 *  [x] **Navegação Rápida:** Links internos para as seções da página.
+*  [x] **Página Institucional "Quem Somos" (`/sobre`, SPEC-12):** Link **"Quem Somos"** na extremidade direita do cabeçalho da Landing Page (em todos os estados) e em Navegação Rápida no rodapé, abrindo `/sobre` com manifesto, história, compromisso, propósito, 3 pilares e botões proporcionais para Paciente e Clínica + logo de volta ao início (`/`).
 *  [x] **Linha de Créditos & Termos:** Copyright 2026, links de Termos de Uso / Políticas de Privacidade e razão social / CNPJ.
 
 ##### 3.4 Carrossel Interativo de Depoimentos (visível após escolha de nicho)
@@ -86,7 +89,7 @@ Na SPEC-04, o carrossel não aparece no estado neutro. A visão Paciente exibe a
 --------------------------------------------------------------------------------
 
 #### 5) Mapa Rápido de Status (Visão Executiva)
-*   **Atende:** Base visual e conversão dual, CTAs duplos, modal inteligente, faixa passo a passo em 4 etapas, catálogo público com busca multi-critério (Categoria + Convênio + Faixa de Valor), carrossel de depoimentos e rodapé Dark Theme.
-*   **Concluído:** Hub neutro e visões segmentadas (`SPEC-04`).
-*   **Planejado:** credenciamento (`SPEC-05`); token, repasse e boleto mock (`SPEC-09`); integrações externas Google Auth e WhatsApp em EVOL-005, depois do planejamento de API/backend em EVOL-002. O fluxo web da SPEC-06 está concluído; pendências de copy, dados e manutenção estão rastreadas em EVOL-007..014.
-*   **Fora desta sequência mock-first:** API real de autenticação.
+*   **Atende:** Base visual e conversão dual, CTAs duplos, modal inteligente, catálogo público com busca multi-critério (Categoria + Convênio + Faixa de Valor), carrossel de depoimentos e rodapé Dark Theme.
+*   **Concluído:** Hub neutro e visões segmentadas (`SPEC-04`); agendamento web e busca para terceiros (`SPEC-06`); página `/sobre` e textos dos 4 passos da jornada do paciente (`SPEC-12`); transparência dos 90 dias gratuitos + R$ 99,00/mês na visão B2B (`SPEC-05`); máquinas de estado, token único por pedido e cobrança única de R$ 5,00 ao paciente com trava de inadimplência (`SPEC-09`).
+*   **Planejado / Futuro:** filtro da vitrine sobre cadastros reais de clínicas (`SPEC-05` / EVOL-006); integrações externas Google Auth e WhatsApp em EVOL-005; chatbot/mascote Zelo em EVOL-018; e-mails automáticos pós-trial em EVOL-019.
+*   **Fora desta sequência mock-first:** API real de autenticação e pagamento PIX dinâmico.
